@@ -91,14 +91,14 @@ func downloadDashboardByID(id string) error {
 	title, _ := result["title"].(string)
 	safeTitle := sanitizeFilename(title)
 
-	// Ensure output directory exists
-	outDir := "data/dashboards"
-	if err := os.MkdirAll(outDir, 0755); err != nil {
+	// Ensure output directory exists (from settings)
+	dashboardsDir := settings.DashboardsDir
+	if err := os.MkdirAll(dashboardsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
 	// Write to file
-	filename := fmt.Sprintf("%s/%s-%s.json", outDir, id, safeTitle)
+	filename := fmt.Sprintf("%s/%s-%s.json", dashboardsDir, id, safeTitle)
 	f, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)

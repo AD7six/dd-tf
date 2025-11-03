@@ -8,9 +8,10 @@ import (
 )
 
 type Settings struct {
-	APIKey    string
-	AppKey    string
-	APIDomain string
+	APIKey        string
+	AppKey        string
+	APIDomain     string
+	DashboardsDir string
 }
 
 func LoadSettings() (*Settings, error) {
@@ -20,10 +21,15 @@ func LoadSettings() (*Settings, error) {
 	apiKey := os.Getenv("DD_API_KEY")
 	appKey := os.Getenv("DD_APP_KEY")
 	apiDomain := os.Getenv("DD_API_DOMAIN")
+	dashboardsDir := os.Getenv("DASHBOARDS_DIR")
 
 	// Default to US site if not set
 	if apiDomain == "" {
 		apiDomain = "api.datadoghq.com"
+	}
+	// Default dashboards output directory
+	if dashboardsDir == "" {
+		dashboardsDir = "data/dashboards"
 	}
 
 	if apiKey == "" {
@@ -34,8 +40,9 @@ func LoadSettings() (*Settings, error) {
 	}
 
 	return &Settings{
-		APIKey:    apiKey,
-		AppKey:    appKey,
-		APIDomain: apiDomain,
+		APIKey:        apiKey,
+		AppKey:        appKey,
+		APIDomain:     apiDomain,
+		DashboardsDir: dashboardsDir,
 	}, nil
 }
