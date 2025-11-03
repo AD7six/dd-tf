@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/AD7six/dd-tf/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -55,21 +56,20 @@ func init() {
 	DownloadCmd.Flags().StringVar(&dashboardID, "id", "", "Dashboard ID to download")
 }
 
-// downloadDashboardByID fetches a dashboard by ID from the Datadog API and prints the JSON.
+// downloadDashboardByID fetches a dashboard by ID from the Datadog API and writes the JSON to data/dashboards/<ID>-title.json.
 func downloadDashboardByID(id string) error {
-	apiKey := os.Getenv("DD_API_KEY")
-	appKey := os.Getenv("DD_APP_KEY")
-	if apiKey == "" || appKey == "" {
-		return fmt.Errorf("DD_API_KEY and DD_APP_KEY environment variables must be set")
+	settings, err := utils.LoadSettings()
+	if err != nil {
+		return err
 	}
 
-	url := fmt.Sprintf("https://api.datadoghq.eu/api/v1/dashboard/%s", id)
+	url := fmt.Sprintf("https://%s/api/v1/dashboard/%s", settings.APIDomain, id)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("DD-API-KEY", apiKey)
-	req.Header.Set("DD-APPLICATION-KEY", appKey)
+	req.Header.Set("DD-API-KEY", settings.APIKey)
+	req.Header.Set("DD-APPLICATION-KEY", settings.AppKey)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
