@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -14,6 +15,7 @@ type Settings struct {
 	APIDomain           string // e.g., "api.datadoghq.com" - depends on which datadog site (https://docs.datadoghq.com/getting_started/site/) the account is in
 	DashboardsDir       string // Where dashboard JSON files are stored
 	AddTitleToFileNames bool   // Whether to append dashboard title to output filename
+	Retry429MaxAttempts int    // How many times to retry on HTTP 429 responses
 }
 
 func LoadSettings() (*Settings, error) {
@@ -32,6 +34,7 @@ func LoadSettings() (*Settings, error) {
 	apiDomain := getEnv("DD_API_DOMAIN", "api.datadoghq.com")
 	dashboardsDir := getEnv("DASHBOARDS_DIR", "data/dashboards")
 	addTitle := getEnvBool("DASHBOARDS_ADD_TITLE", true)
+	retry429 := getEnvInt("HTTP_RETRY_429_ATTEMPTS", 3)
 
 	return &Settings{
 		APIKey:              apiKey,
@@ -39,6 +42,7 @@ func LoadSettings() (*Settings, error) {
 		APIDomain:           apiDomain,
 		DashboardsDir:       dashboardsDir,
 		AddTitleToFileNames: addTitle,
+		Retry429MaxAttempts: retry429,
 	}, nil
 }
 
@@ -72,4 +76,16 @@ func getEnvBool(key string, def bool) bool {
 	default:
 		return def
 	}
+}
+
+// getEnvInt returns an int env var or a default if unset/invalid.
+func getEnvInt(key string, def int) int {
+	v, ok := os.LookupEnv(key)
+	if !ok || strings.TrimSpace(v) == "" {
+		return def
+	}
+	if i, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+		return i
+	}
+	return def
 }
