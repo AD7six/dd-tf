@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
 
 	"github.com/AD7six/dd-tf/internal/utils"
@@ -87,37 +86,15 @@ func downloadDashboardByID(id string) error {
 		return err
 	}
 
-	// Get the dashboard title and sanitize it for filename
+	// Get the dashboard title
 	title, _ := result["title"].(string)
-	safeTitle := sanitizeFilename(title)
 
-	// Ensure output directory exists (from settings)
-	dashboardsDir := settings.DashboardsDir
-	if err := os.MkdirAll(dashboardsDir, 0755); err != nil {
-		return fmt.Errorf("failed to create output directory: %w", err)
-	}
-
-	// Write to file
-	filename := fmt.Sprintf("%s/%s-%s.json", dashboardsDir, id, safeTitle)
-	f, err := os.Create(filename)
+	// Write JSON via utils helper
+	writer := utils.NewJSONWriter(settings.DashboardsDir)
+	filename, err := writer.SavePretty(id, title, result)
 	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
+		return err
 	}
-	defer f.Close()
-
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(result); err != nil {
-		return fmt.Errorf("failed to write JSON: %w", err)
-	}
-
 	fmt.Printf("Dashboard saved to %s\n", filename)
 	return nil
-}
-
-// sanitizeFilename replaces non-alphanumeric characters with underscores.
-func sanitizeFilename(name string) string {
-	// Replace spaces and non-alphanumeric characters with underscores
-	re := regexp.MustCompile(`[^a-zA-Z0-9]+`)
-	return strings.Trim(re.ReplaceAllString(name, "_"), "_")
 }
