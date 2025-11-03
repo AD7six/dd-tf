@@ -1,6 +1,9 @@
 package dashboards
 
-import "github.com/spf13/cobra"
+import (
+	id "github.com/AD7six/dd-tf/internal/datadog"
+	"github.com/spf13/cobra"
+)
 
 func NewDashboardsCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -9,7 +12,7 @@ func NewDashboardsCmd() *cobra.Command {
 	}
 
 	//cmd.AddCommand(DownloadAllCmd)
-	//cmd.AddCommand(DownloadCmd)
+	cmd.AddCommand(id.DownloadCmd)
 	//cmd.AddCommand(UpdateCmd)
 
 	return cmd

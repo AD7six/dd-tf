@@ -30,7 +30,7 @@ build: ## Builds the go binary
 
 .PHONY: run
 run: ## Compile and run the dev cli
-	@go run cmd/dd-tf/main.go
+	go run cmd/dd-tf/main.go
 
 .PHONY: clean
 clean: ## Cleans the build artifacts
