@@ -63,7 +63,7 @@ func init() {
 	DownloadCmd.Flags().BoolVar(&allFlag, "all", false, "Download all dashboards")
 	DownloadCmd.Flags().StringVar(&team, "team", "", "Team name (convenience for tag 'team:x')")
 	DownloadCmd.Flags().StringVar(&tags, "tags", "", "Comma-separated list of tags to filter dashboards")
-	DownloadCmd.Flags().StringVar(&dashboardID, "id", "", "Dashboard ID to download")
+	DownloadCmd.Flags().StringVar(&dashboardID, "id", "", "Dashboard ID(s) to download (comma-separated)")
 }
 
 // generateDashboardIDs returns a channel that yields dashboard IDs to download.
@@ -73,8 +73,11 @@ func generateDashboardIDs() (<-chan string, error) {
 
 	// Only implement explicit --id for now
 	if dashboardID != "" {
+		ids := utils.ParseCommaSeparatedIDs(dashboardID)
 		go func() {
-			out <- dashboardID
+			for _, id := range ids {
+				out <- id
+			}
 			close(out)
 		}()
 		return out, nil
