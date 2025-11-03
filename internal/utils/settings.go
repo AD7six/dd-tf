@@ -3,15 +3,17 @@ package utils
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
 
 type Settings struct {
-	APIKey        string
-	AppKey        string
-	APIDomain     string // e.g., "api.datadoghq.com" - depends on which datadog site (https://docs.datadoghq.com/getting_started/site/) the account is in
-	DashboardsDir string // Where dashboard JSON files are stored
+	APIKey              string
+	AppKey              string
+	APIDomain           string // e.g., "api.datadoghq.com" - depends on which datadog site (https://docs.datadoghq.com/getting_started/site/) the account is in
+	DashboardsDir       string // Where dashboard JSON files are stored
+	AddTitleToFileNames bool   // Whether to append dashboard title to output filename
 }
 
 func LoadSettings() (*Settings, error) {
@@ -29,12 +31,14 @@ func LoadSettings() (*Settings, error) {
 
 	apiDomain := getEnv("DD_API_DOMAIN", "api.datadoghq.com")
 	dashboardsDir := getEnv("DASHBOARDS_DIR", "data/dashboards")
+	addTitle := getEnvBool("DASHBOARDS_ADD_TITLE", true)
 
 	return &Settings{
-		APIKey:        apiKey,
-		AppKey:        appKey,
-		APIDomain:     apiDomain,
-		DashboardsDir: dashboardsDir,
+		APIKey:              apiKey,
+		AppKey:              appKey,
+		APIDomain:           apiDomain,
+		DashboardsDir:       dashboardsDir,
+		AddTitleToFileNames: addTitle,
 	}, nil
 }
 
@@ -52,4 +56,20 @@ func getEnvRequired(key string) (string, error) {
 		return v, nil
 	}
 	return "", fmt.Errorf("%s environment variable must be set", key)
+}
+
+// getEnvBool returns a boolean env var with support for common truthy/falsey strings, defaulting when unset/empty.
+func getEnvBool(key string, def bool) bool {
+	v, ok := os.LookupEnv(key)
+	if !ok || v == "" {
+		return def
+	}
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "1", "true", "t", "yes", "y", "on":
+		return true
+	case "0", "false", "f", "no", "n", "off":
+		return false
+	default:
+		return def
+	}
 }

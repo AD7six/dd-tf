@@ -128,7 +128,7 @@ func downloadDashboardByID(id string) error {
 	title, _ := result["title"].(string)
 
 	// Write JSON via utils helper
-	writer := utils.NewJSONWriter(settings.DashboardsDir)
+	writer := utils.NewJSONWriter(settings.DashboardsDir, settings.AddTitleToFileNames)
 	filename, err := writer.SavePretty(id, title, result)
 	if err != nil {
 		return err
