@@ -28,6 +28,10 @@ test: ## Runs go tests
 build: ## Builds the go binary
 	@go build -o bin/dd-tf ./cmd/dd-tf/main.go
 
+.PHONY: run
+run: ## Compile and run the dev cli
+	@go run cmd/dd-tf/main.go
+
 .PHONY: clean
 clean: ## Cleans the build artifacts
 	@rm -rf bin/
