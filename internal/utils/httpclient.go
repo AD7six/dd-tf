@@ -2,32 +2,190 @@ package utils
 
 import (
 	"net/http"
+	"strconv"
+	"sync"
+	"time"
 )
 
-// DatadogHTTPClient wraps an HTTP client with Datadog API credentials.
+// DatadogHTTPClient wraps an HTTP client with Datadog API credentials, a concurrency limiter,
+// and coordinated retry/pausing on 429s.
 type DatadogHTTPClient struct {
 	APIKey         string
 	AppKey         string
 	UnderlyingHTTP *http.Client
+
+	// concurrency limiter
+	sem chan struct{}
+
+	// retries for errors (including 5xx) and 429s
+	retries int
+
+	// global pause after receiving 429; all requests wait until pauseUntil
+	mu         sync.Mutex
+	pauseUntil time.Time
 }
 
+const (
+	defaultMaxConcurrency = 8
+	defaultRetries        = 3
+)
+
+var (
+	sharedOnce   sync.Once
+	sharedClient *DatadogHTTPClient
+)
+
 // NewDatadogHTTPClient creates a new client with the given credentials.
+// Deprecated: prefer GetHTTPClient to share queue/pauses across requests.
 func NewDatadogHTTPClient(apiKey, appKey string) *DatadogHTTPClient {
+	return newClient(apiKey, appKey, defaultMaxConcurrency, defaultRetries)
+}
+
+// GetHTTPClient returns a shared client instance to ensure concurrency limiting and 429 pauses
+// are coordinated across all requests in this process.
+func GetHTTPClient(apiKey, appKey string) *DatadogHTTPClient {
+	sharedOnce.Do(func() {
+		sharedClient = newClient(apiKey, appKey, defaultMaxConcurrency, defaultRetries)
+	})
+	return sharedClient
+}
+
+func newClient(apiKey, appKey string, maxConcurrent, retries int) *DatadogHTTPClient {
+	if maxConcurrent <= 0 {
+		maxConcurrent = defaultMaxConcurrency
+	}
+	if retries <= 0 {
+		retries = defaultRetries
+	}
 	return &DatadogHTTPClient{
 		APIKey:         apiKey,
 		AppKey:         appKey,
-		UnderlyingHTTP: http.DefaultClient,
+		UnderlyingHTTP: &http.Client{Timeout: 60 * time.Second},
+		sem:            make(chan struct{}, maxConcurrent),
+		retries:        retries,
 	}
 }
 
-// Get performs a simple GET request with Datadog auth headers.
+// Get performs a GET request with Datadog auth headers, honoring concurrency limits
+// and retrying 429s (after Retry-After) and other errors up to c.retries times.
+// If a 429 is received, all subsequent requests will wait until the Retry-After window passes.
 func (c *DatadogHTTPClient) Get(url string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("DD-API-KEY", c.APIKey)
-	req.Header.Set("DD-APPLICATION-KEY", c.AppKey)
+	// Acquire concurrency slot
+	c.sem <- struct{}{}
+	defer func() { <-c.sem }()
 
-	return c.UnderlyingHTTP.Do(req)
+	// Retry loop
+	var lastErr error
+	for attempt := 0; attempt <= c.retries; attempt++ {
+		// If globally paused due to 429, wait it out
+		c.waitIfPaused()
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("DD-API-KEY", c.APIKey)
+		req.Header.Set("DD-APPLICATION-KEY", c.AppKey)
+
+		resp, err := c.UnderlyingHTTP.Do(req)
+		if err != nil {
+			lastErr = err
+			if attempt < c.retries {
+				time.Sleep(backoffDuration(attempt))
+				continue
+			}
+			return nil, lastErr
+		}
+
+		// Handle 429: set global pause, then retry after waiting
+		if resp.StatusCode == http.StatusTooManyRequests {
+			// Determine wait duration from Retry-After (seconds) or fall back to 1s
+			wait := parseRetryAfter(resp)
+			// Close body before sleeping/retrying
+			_ = resp.Body.Close()
+
+			// Set global pause
+			c.setPause(wait)
+
+			if attempt < c.retries {
+				// Sleep the same period locally before retrying this request
+				time.Sleep(wait)
+				continue
+			}
+			return nil, &rateLimitedError{after: wait}
+		}
+
+		// Retry transient server errors (5xx). Do not retry other 4xx.
+		if resp.StatusCode >= 500 {
+			if attempt < c.retries {
+				_ = resp.Body.Close()
+				time.Sleep(backoffDuration(attempt))
+				continue
+			}
+			// return last response to caller for error handling
+			return resp, nil
+		}
+
+		return resp, nil
+	}
+
+	return nil, lastErr
 }
+
+// Backoff: 500ms, 1s, 2s, capped
+func backoffDuration(attempt int) time.Duration {
+	d := 500 * time.Millisecond
+	for i := 0; i < attempt; i++ {
+		d *= 2
+		if d > 5*time.Second {
+			d = 5 * time.Second
+			break
+		}
+	}
+	return d
+}
+
+func (c *DatadogHTTPClient) waitIfPaused() {
+	for {
+		c.mu.Lock()
+		now := time.Now()
+		until := c.pauseUntil
+		c.mu.Unlock()
+		if until.IsZero() || now.After(until) || now.Equal(until) {
+			return
+		}
+		time.Sleep(time.Until(until))
+	}
+}
+
+func (c *DatadogHTTPClient) setPause(d time.Duration) {
+	if d <= 0 {
+		d = time.Second
+	}
+	c.mu.Lock()
+	// If there is already a longer pause in place, keep it
+	proposed := time.Now().Add(d)
+	if proposed.After(c.pauseUntil) {
+		c.pauseUntil = proposed
+	}
+	c.mu.Unlock()
+}
+
+func parseRetryAfter(resp *http.Response) time.Duration {
+	if resp == nil {
+		return time.Second
+	}
+	if ra := resp.Header.Get("Retry-After"); ra != "" {
+		if secs, err := strconv.Atoi(ra); err == nil && secs >= 0 {
+			return time.Duration(secs) * time.Second
+		}
+		// Could be an HTTP date; ignore for simplicity
+	}
+	return time.Second
+}
+
+type rateLimitedError struct {
+	after time.Duration
+}
+
+func (e *rateLimitedError) Error() string { return "rate limited by server" }
