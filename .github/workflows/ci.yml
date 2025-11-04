@@ -10,6 +10,35 @@ permissions:
     contents: read
 
 jobs:
+    format:
+        name: Format check
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version-file: go.mod
+                  cache: true
+
+            - name: Check Go formatting
+              run: |
+                  files=$(gofmt -l .)
+                  if [ -n "$files" ]; then
+                      echo "The following Go files are not formatted:" >&2
+                      echo "$files" >&2
+                      echo "Run 'go fmt ./...' locally to fix." >&2
+                      exit 1
+                  fi
+
+            - name: Set up Terraform
+              uses: hashicorp/setup-terraform@v3
+
+            - name: Check Terraform formatting
+              run: terraform fmt -check -recursive .
+
     test:
         runs-on: ubuntu-latest
         steps:
