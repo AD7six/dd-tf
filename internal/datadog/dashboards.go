@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"text/template"
@@ -74,7 +75,7 @@ var DownloadCmd = &cobra.Command{
 func init() {
 	DownloadCmd.Flags().BoolVar(&allFlag, "all", false, "Download all dashboards")
 	DownloadCmd.Flags().BoolVar(&updateFlag, "update", false, "Update already-downloaded dashboards (scans existing files)")
-	DownloadCmd.Flags().StringVar(&outputPath, "output", "", "Output path template (supports {{.DashboardsDir}}, {{.ID}}, {{.Title}}, {{.Tags.team}}, etc.)")
+	DownloadCmd.Flags().StringVar(&outputPath, "output", "", "Output path template (supports {DASHBOARDS_DIR}, {id}, {title}, {team} and Go templates like {{.DashboardsDir}}, {{.ID}}, {{.Title}}, {{.Tags.team}})")
 	DownloadCmd.Flags().StringVar(&team, "team", "", "Team name (convenience for tag 'team:x')")
 	DownloadCmd.Flags().StringVar(&tags, "tags", "", "Comma-separated list of tags to filter dashboards")
 	DownloadCmd.Flags().StringVar(&dashboardID, "id", "", "Dashboard ID(s) to download (comma-separated)")
@@ -194,6 +195,44 @@ type dashboardTemplateData struct {
 	Tags          map[string]string
 }
 
+// translateToTemplate converts simpler convenience placeholders like
+//
+//	{DASHBOARDS_DIR}, {id}, {title}, {team}
+//
+// into Go template expressions:
+//
+//	{{.DashboardsDir}}, {{.ID}}, {{.Title}}, {{.Tags.team}}.
+//
+// Any unknown {name} will be translated to {{.Tags.name}} to support dynamic
+// tag-based placeholders.
+func translateToTemplate(p string) string {
+	// First replace known built-ins explicitly to avoid treating them as tags
+	builtin := map[string]string{
+		"{DASHBOARDS_DIR}": "{{.DashboardsDir}}",
+		"{id}":             "{{.ID}}",
+		"{title}":          "{{.Title}}",
+	}
+	for k, v := range builtin {
+		p = strings.ReplaceAll(p, k, v)
+	}
+
+	// Then translate any remaining {word} into {{.Tags.word}}
+	re := regexp.MustCompile(`\{([A-Za-z0-9_\-]+)\}`)
+	p = re.ReplaceAllStringFunc(p, func(m string) string {
+		sub := re.FindStringSubmatch(m)
+		if len(sub) != 2 {
+			return m
+		}
+		name := sub[1]
+		// Explicit support for {team}
+		if name == "team" {
+			return "{{.Tags.team}}"
+		}
+		return fmt.Sprintf("{{.Tags.%s}}", name)
+	})
+	return p
+}
+
 // computeDashboardPath computes the file path from the configured pattern or --output flag using Go templates.
 // Template variables:
 //
@@ -213,6 +252,9 @@ func computeDashboardPath(settings *utils.Settings, dashboard map[string]interfa
 	if pattern == "" {
 		pattern = settings.DashboardsPathPattern
 	}
+
+	// Translate legacy placeholders like {id} to Go template variables before rendering
+	pattern = translateToTemplate(pattern)
 
 	// Extract tags from dashboard and build tag map
 	tagMap := make(map[string]string)
