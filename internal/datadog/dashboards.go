@@ -83,6 +83,12 @@ func init() {
 
 // fetchAllDashboardIDs queries the Datadog API to retrieve all dashboard IDs.
 func fetchAllDashboardIDs() ([]string, error) {
+	return fetchDashboardIDsByTags(nil)
+}
+
+// fetchDashboardIDsByTags queries the Datadog API to retrieve dashboard IDs, optionally filtered by tags.
+// If filterTags is nil or empty, returns all dashboards.
+func fetchDashboardIDsByTags(filterTags []string) ([]string, error) {
 	settings, err := utils.LoadSettings()
 	if err != nil {
 		return nil, err
@@ -102,10 +108,11 @@ func fetchAllDashboardIDs() ([]string, error) {
 		return nil, fmt.Errorf("API error: %s\n%s", resp.Status, string(body))
 	}
 
-	// Parse response to extract dashboard IDs
+	// Parse response to extract dashboard IDs and tags
 	var result struct {
 		Dashboards []struct {
-			ID string `json:"id"`
+			ID   string   `json:"id"`
+			Tags []string `json:"tags"`
 		} `json:"dashboards"`
 	}
 
@@ -115,12 +122,46 @@ func fetchAllDashboardIDs() ([]string, error) {
 
 	ids := make([]string, 0, len(result.Dashboards))
 	for _, dashboard := range result.Dashboards {
-		if dashboard.ID != "" {
+		if dashboard.ID == "" {
+			continue
+		}
+
+		// If no filter tags specified, include all dashboards
+		if len(filterTags) == 0 {
+			ids = append(ids, dashboard.ID)
+			continue
+		}
+
+		// Check if dashboard has all required filter tags
+		if hasAllTags(dashboard.Tags, filterTags) {
 			ids = append(ids, dashboard.ID)
 		}
 	}
 
 	return ids, nil
+}
+
+// hasAllTags checks if dashboardTags contains all of the required filterTags.
+// Tag matching is case-insensitive.
+func hasAllTags(dashboardTags, filterTags []string) bool {
+	if len(filterTags) == 0 {
+		return true
+	}
+
+	// Normalize dashboard tags to lowercase for case-insensitive comparison
+	tagSet := make(map[string]bool, len(dashboardTags))
+	for _, tag := range dashboardTags {
+		tagSet[strings.ToLower(tag)] = true
+	}
+
+	// Check if all filter tags are present
+	for _, filterTag := range filterTags {
+		if !tagSet[strings.ToLower(filterTag)] {
+			return false
+		}
+	}
+
+	return true
 }
 
 // generateDashboardTargets returns a channel that yields dashboard IDs and target paths.
@@ -180,14 +221,40 @@ func generateDashboardTargets() (<-chan dashboardTarget, error) {
 		return out, nil
 	}
 
-	// Placeholders for future implementations
-	if team != "" || tags != "" {
-		close(out)
-		return nil, fmt.Errorf("selectors --team/--tags not implemented yet; please use --id, --all, or --update")
+	// Build filter tags from --team and --tags flags
+	var filterTags []string
+	if team != "" {
+		// --team is a convenience flag that translates to team:x tag
+		filterTags = append(filterTags, fmt.Sprintf("team:%s", team))
+	}
+	if tags != "" {
+		// Parse comma-separated tags
+		parsedTags := utils.ParseCommaSeparatedIDs(tags) // Reuse the string splitting logic
+		filterTags = append(filterTags, parsedTags...)
+	}
+
+	// --team or --tags: fetch dashboards filtered by tags
+	if len(filterTags) > 0 {
+		go func() {
+			defer close(out)
+			ids, err := fetchDashboardIDsByTags(filterTags)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: failed to fetch dashboards by tags: %v\n", err)
+				return
+			}
+			if len(ids) == 0 {
+				fmt.Fprintf(os.Stderr, "Warning: no dashboards found with tags: %v\n", filterTags)
+			}
+			for _, id := range ids {
+				// Path will be computed in download function with actual title
+				out <- dashboardTarget{ID: id, Path: ""} // empty path means use pattern
+			}
+		}()
+		return out, nil
 	}
 
 	close(out)
-	return nil, fmt.Errorf("please specify --id, --all, or --update (other selectors not implemented yet)")
+	return nil, fmt.Errorf("please specify --id, --all, --team, --tags, or --update")
 }
 
 // downloadDashboardByID fetches a dashboard by ID from the Datadog API and writes to the specified path.
