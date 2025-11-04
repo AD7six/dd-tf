@@ -4,16 +4,6 @@ DEFAULT_GOAL := help
 help: ## Lists help commands
 	@grep -h -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-36s\033[0m %s\n", $$1, $$2}'
 
-.PHONY: tf-lock
-tf-lock: ## Locks all terraform projects dependencies
-	@BASE=$$(pwd);\
-	for d in ${ATLANTIS_PROJECTS_DIRS}; do\
-		echo "Locking $$d/"; \
-		cd $$BASE/$$d;\
-		terraform init -upgrade;\
-		terraform providers lock ${TF_PLATFORMS};\
-	done
-
 .PHONY: fmt 
 fmt: go-fmt tf-fmt ## Format code
 
