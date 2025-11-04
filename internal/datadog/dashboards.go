@@ -6,11 +6,19 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/AD7six/dd-tf/internal/utils"
 	"github.com/spf13/cobra"
 )
+
+// dashboardTarget represents a dashboard ID and the path where it should be written.
+type dashboardTarget struct {
+	ID   string
+	Path string
+}
 
 var (
 	allFlag     bool
@@ -24,7 +32,7 @@ var DownloadCmd = &cobra.Command{
 	Use:   "download",
 	Short: "Download Datadog dashboards by ID, team, tags, or all",
 	Run: func(cmd *cobra.Command, args []string) {
-		idsCh, err := generateDashboardIDs()
+		targetsCh, err := generateDashboardTargets()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
@@ -33,14 +41,14 @@ var DownloadCmd = &cobra.Command{
 		var wg sync.WaitGroup
 		errCh := make(chan error, 8)
 
-		for id := range idsCh {
-			id := id // capture
-			fmt.Printf("Downloading dashboard with ID: %s\n", id)
+		for target := range targetsCh {
+			target := target // capture
+			fmt.Printf("Downloading dashboard with ID: %s\n", target.ID)
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				if err := downloadDashboardByID(id); err != nil {
-					errCh <- fmt.Errorf("%s: %w", id, err)
+				if err := downloadDashboardByID(target.ID, target.Path); err != nil {
+					errCh <- fmt.Errorf("%s: %w", target.ID, err)
 				}
 			}()
 		}
@@ -68,18 +76,19 @@ func init() {
 	DownloadCmd.Flags().StringVar(&dashboardID, "id", "", "Dashboard ID(s) to download (comma-separated)")
 }
 
-// generateDashboardIDs returns a channel that yields dashboard IDs to download.
-// For now, only the --id and --update flags are supported; other selectors are not yet implemented.
-func generateDashboardIDs() (<-chan string, error) {
-	out := make(chan string)
+// generateDashboardTargets returns a channel that yields dashboard IDs and target paths.
+// For --update mode, uses existing file paths. For other modes, computes paths from pattern.
+func generateDashboardTargets() (<-chan dashboardTarget, error) {
+	out := make(chan dashboardTarget)
 
-	// --update: scan existing dashboard files and extract IDs
+	settings, err := utils.LoadSettings()
+	if err != nil {
+		close(out)
+		return nil, err
+	}
+
+	// --update: scan existing dashboard files and use their paths
 	if updateFlag {
-		settings, err := utils.LoadSettings()
-		if err != nil {
-			close(out)
-			return nil, err
-		}
 		go func() {
 			defer close(out)
 			idToPath, err := utils.ExtractIDsFromJSONFiles(settings.DashboardsDir)
@@ -87,21 +96,22 @@ func generateDashboardIDs() (<-chan string, error) {
 				fmt.Fprintf(os.Stderr, "Warning: failed to scan directory: %v\n", err)
 				return
 			}
-			for id := range idToPath {
-				out <- id
+			for id, path := range idToPath {
+				out <- dashboardTarget{ID: id, Path: path}
 			}
 		}()
 		return out, nil
 	}
 
-	// Only implement explicit --id for now
+	// Other modes: compute path from pattern (pattern will be resolved with title later)
 	if dashboardID != "" {
 		ids := utils.ParseCommaSeparatedIDs(dashboardID)
 		go func() {
+			defer close(out)
 			for _, id := range ids {
-				out <- id
+				// Path will be computed in download function with actual title
+				out <- dashboardTarget{ID: id, Path: ""} // empty path means use pattern
 			}
-			close(out)
 		}()
 		return out, nil
 	}
@@ -116,8 +126,9 @@ func generateDashboardIDs() (<-chan string, error) {
 	return nil, fmt.Errorf("please specify --id or --update (other selectors not implemented yet)")
 }
 
-// downloadDashboardByID fetches a dashboard by ID from the Datadog API and writes the JSON to data/dashboards/<ID>-title.json.
-func downloadDashboardByID(id string) error {
+// downloadDashboardByID fetches a dashboard by ID from the Datadog API and writes to the specified path.
+// If targetPath is empty, computes the path using the configured pattern.
+func downloadDashboardByID(id, targetPath string) error {
 	settings, err := utils.LoadSettings()
 	if err != nil {
 		return err
@@ -146,12 +157,40 @@ func downloadDashboardByID(id string) error {
 	// Get the dashboard title
 	title, _ := result["title"].(string)
 
-	// Write JSON via utils helper
-	writer := utils.NewJSONWriter(settings.DashboardsDir, settings.AddTitleToFileNames)
-	filename, err := writer.SavePretty(id, title, result)
-	if err != nil {
-		return err
+	// Compute path if not provided (--update uses existing path)
+	if targetPath == "" {
+		targetPath = computeDashboardPath(settings, id, title)
 	}
-	fmt.Printf("Dashboard saved to %s\n", filename)
+
+	// Ensure directory exists
+	dir := filepath.Dir(targetPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Write JSON file
+	f, err := os.Create(targetPath)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(result); err != nil {
+		return fmt.Errorf("failed to write JSON: %w", err)
+	}
+
+	fmt.Printf("Dashboard saved to %s\n", targetPath)
 	return nil
+}
+
+// computeDashboardPath computes the file path from the configured pattern.
+// Supports placeholders: {DASHBOARDS_DIR}, {id}, {title}
+func computeDashboardPath(settings *utils.Settings, id, title string) string {
+	path := settings.DashboardsPathPattern
+	path = strings.ReplaceAll(path, "{DASHBOARDS_DIR}", settings.DashboardsDir)
+	path = strings.ReplaceAll(path, "{id}", id)
+	path = strings.ReplaceAll(path, "{title}", utils.SanitizeFilename(title))
+	return path
 }

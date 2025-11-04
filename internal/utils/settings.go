@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -10,12 +11,14 @@ import (
 )
 
 type Settings struct {
-	APIKey              string
-	AppKey              string
-	APIDomain           string // e.g., "api.datadoghq.com" - depends on which datadog site (https://docs.datadoghq.com/getting_started/site/) the account is in
-	DashboardsDir       string // Where dashboard JSON files are stored
-	AddTitleToFileNames bool   // Whether to append dashboard title to output filename
-	Retry429MaxAttempts int    // How many times to retry on HTTP 429 responses
+	APIKey                    string
+	AppKey                    string
+	APIDomain                 string // e.g., "api.datadoghq.com" - depends on which datadog site (https://docs.datadoghq.com/getting_started/site/) the account is in
+	DashboardsDir             string // Where dashboard JSON files are stored
+	DashboardsFilenamePattern string // Path pattern for dashboard files, defaults to "{id}.json"
+	DashboardsPathPattern     string // Path pattern for dashboard full path, defaults to "{DASHBOARDS_DIR}/{id}.json"
+	AddTitleToFileNames       bool   // Whether to append dashboard title to output filename
+	Retry429MaxAttempts       int    // How many times to retry on HTTP 429 responses
 }
 
 func LoadSettings() (*Settings, error) {
@@ -33,16 +36,19 @@ func LoadSettings() (*Settings, error) {
 
 	apiDomain := getEnv("DD_API_DOMAIN", "api.datadoghq.com")
 	dashboardsDir := getEnv("DASHBOARDS_DIR", "data/dashboards")
+	DashboardsFilenamePattern := getEnv("DASHBOARDS_FILENAME_PATTERN", "{id}.json")
+	DashboardsPathPattern := getEnv("DASHBOARDS_PATH_PATTERN", filepath.Join(dashboardsDir, DashboardsFilenamePattern))
 	addTitle := getEnvBool("DASHBOARDS_ADD_TITLE", true)
 	retry429 := getEnvInt("HTTP_RETRY_429_ATTEMPTS", 3)
 
 	return &Settings{
-		APIKey:              apiKey,
-		AppKey:              appKey,
-		APIDomain:           apiDomain,
-		DashboardsDir:       dashboardsDir,
-		AddTitleToFileNames: addTitle,
-		Retry429MaxAttempts: retry429,
+		APIKey:                apiKey,
+		AppKey:                appKey,
+		APIDomain:             apiDomain,
+		DashboardsDir:         dashboardsDir,
+		DashboardsPathPattern: DashboardsPathPattern,
+		AddTitleToFileNames:   addTitle,
+		Retry429MaxAttempts:   retry429,
 	}, nil
 }
 
