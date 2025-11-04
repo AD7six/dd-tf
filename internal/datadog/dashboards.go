@@ -23,6 +23,7 @@ type dashboardTarget struct {
 var (
 	allFlag     bool
 	updateFlag  bool
+	outputPath  string
 	team        string
 	tags        string
 	dashboardID string
@@ -71,6 +72,7 @@ var DownloadCmd = &cobra.Command{
 func init() {
 	DownloadCmd.Flags().BoolVar(&allFlag, "all", false, "Download all dashboards")
 	DownloadCmd.Flags().BoolVar(&updateFlag, "update", false, "Update already-downloaded dashboards (scans existing files)")
+	DownloadCmd.Flags().StringVar(&outputPath, "output", "", "Output path or pattern (supports {DASHBOARDS_DIR}, {id}, {title})")
 	DownloadCmd.Flags().StringVar(&team, "team", "", "Team name (convenience for tag 'team:x')")
 	DownloadCmd.Flags().StringVar(&tags, "tags", "", "Comma-separated list of tags to filter dashboards")
 	DownloadCmd.Flags().StringVar(&dashboardID, "id", "", "Dashboard ID(s) to download (comma-separated)")
@@ -185,10 +187,16 @@ func downloadDashboardByID(id, targetPath string) error {
 	return nil
 }
 
-// computeDashboardPath computes the file path from the configured pattern.
+// computeDashboardPath computes the file path from the configured pattern or --output flag.
 // Supports placeholders: {DASHBOARDS_DIR}, {id}, {title}
 func computeDashboardPath(settings *utils.Settings, id, title string) string {
-	path := settings.DashboardsPathPattern
+	// Use --output flag if provided, otherwise use setting
+	pattern := outputPath
+	if pattern == "" {
+		pattern = settings.DashboardsPathPattern
+	}
+
+	path := pattern
 	path = strings.ReplaceAll(path, "{DASHBOARDS_DIR}", settings.DashboardsDir)
 	path = strings.ReplaceAll(path, "{id}", id)
 	path = strings.ReplaceAll(path, "{title}", utils.SanitizeFilename(title))
