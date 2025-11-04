@@ -96,10 +96,10 @@ func fetchDashboardIDsByTags(filterTags []string) ([]string, error) {
 		return nil, err
 	}
 
-	client := utils.NewDatadogHTTPClient(settings.APIKey, settings.AppKey, settings.Retry429MaxAttempts)
+	client := utils.NewDatadogHTTPClient(settings.APIKey, settings.AppKey)
 	url := fmt.Sprintf("https://%s/api/v1/dashboard", settings.APIDomain)
 
-	resp, err := client.GetWithRetry(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch dashboards: %w", err)
 	}
@@ -142,7 +142,7 @@ func fetchDashboardIDsByTags(filterTags []string) ([]string, error) {
 
 		// Fetch full dashboard to get tags
 		dashboardURL := fmt.Sprintf("https://%s/api/v1/dashboard/%s", settings.APIDomain, dashboard.ID)
-		dashResp, err := client.GetWithRetry(dashboardURL)
+		dashResp, err := client.Get(dashboardURL)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to fetch dashboard %s: %v\n", dashboard.ID, err)
 			continue
@@ -182,10 +182,10 @@ func fetchDashboardsWithTagsFiltered(filterTags []string) (map[string]map[string
 		return nil, err
 	}
 
-	client := utils.NewDatadogHTTPClient(settings.APIKey, settings.AppKey, settings.Retry429MaxAttempts)
+	client := utils.NewDatadogHTTPClient(settings.APIKey, settings.AppKey)
 	url := fmt.Sprintf("https://%s/api/v1/dashboard", settings.APIDomain)
 
-	resp, err := client.GetWithRetry(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch dashboards: %w", err)
 	}
@@ -216,7 +216,7 @@ func fetchDashboardsWithTagsFiltered(filterTags []string) (map[string]map[string
 
 		// Fetch full dashboard to get tags
 		dashboardURL := fmt.Sprintf("https://%s/api/v1/dashboard/%s", settings.APIDomain, dashboard.ID)
-		dashResp, err := client.GetWithRetry(dashboardURL)
+		dashResp, err := client.Get(dashboardURL)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to fetch dashboard %s: %v\n", dashboard.ID, err)
 			continue
@@ -389,10 +389,10 @@ func downloadDashboard(target dashboardTarget) error {
 		result = target.Data
 	} else {
 		// Fetch from API
-		client := utils.NewDatadogHTTPClient(settings.APIKey, settings.AppKey, settings.Retry429MaxAttempts)
+		client := utils.NewDatadogHTTPClient(settings.APIKey, settings.AppKey)
 		url := fmt.Sprintf("https://%s/api/v1/dashboard/%s", settings.APIDomain, target.ID)
 
-		resp, err := client.GetWithRetry(url)
+		resp, err := client.Get(url)
 		if err != nil {
 			return err
 		}

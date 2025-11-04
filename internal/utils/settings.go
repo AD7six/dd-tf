@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -18,7 +17,6 @@ type Settings struct {
 	DashboardsFilenamePattern string // Path pattern for dashboard files, defaults to "{id}.json"
 	DashboardsPathPattern     string // Path pattern for dashboard full path, defaults to "{DASHBOARDS_DIR}/{id}.json"
 	AddTitleToFileNames       bool   // Whether to append dashboard title to output filename
-	Retry429MaxAttempts       int    // How many times to retry on HTTP 429 responses
 }
 
 func LoadSettings() (*Settings, error) {
@@ -39,7 +37,6 @@ func LoadSettings() (*Settings, error) {
 	DashboardsFilenamePattern := getEnv("DASHBOARDS_FILENAME_PATTERN", "{id}.json")
 	DashboardsPathPattern := getEnv("DASHBOARDS_PATH_PATTERN", filepath.Join(dashboardsDir, DashboardsFilenamePattern))
 	addTitle := getEnvBool("DASHBOARDS_ADD_TITLE", true)
-	retry429 := getEnvInt("HTTP_RETRY_429_ATTEMPTS", 3)
 
 	return &Settings{
 		APIKey:                apiKey,
@@ -48,7 +45,6 @@ func LoadSettings() (*Settings, error) {
 		DashboardsDir:         dashboardsDir,
 		DashboardsPathPattern: DashboardsPathPattern,
 		AddTitleToFileNames:   addTitle,
-		Retry429MaxAttempts:   retry429,
 	}, nil
 }
 
@@ -84,14 +80,4 @@ func getEnvBool(key string, def bool) bool {
 	}
 }
 
-// getEnvInt returns an int env var or a default if unset/invalid.
-func getEnvInt(key string, def int) int {
-	v, ok := os.LookupEnv(key)
-	if !ok || strings.TrimSpace(v) == "" {
-		return def
-	}
-	if i, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
-		return i
-	}
-	return def
-}
+// (int env helper removed as no longer used)
