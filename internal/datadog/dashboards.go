@@ -239,13 +239,8 @@ func translateToTemplate(p string) string {
 //	{{.DashboardsDir}} - the dashboards directory from settings
 //	{{.ID}} - dashboard ID
 //	{{.Title}} - sanitized dashboard title
-//	{{.Tags.team}} - value of "team" tag (or "none" if not found)
-//	{{.Tags.env}} - value of "env" tag (or "none" if not found)
-//	... any other tag name
-//
-// Custom functions:
-//
-//	{{tag "team"}} - returns tag value or "none" if not found
+//	{{.Tags.team}} - value of "team" tag (empty if not found)
+//	{{.Tags.x}} - value of "x" tag (empty if not found)
 func computeDashboardPath(settings *utils.Settings, dashboard map[string]interface{}) string {
 	// Use --output flag if provided, otherwise use setting
 	pattern := outputPath
@@ -253,7 +248,8 @@ func computeDashboardPath(settings *utils.Settings, dashboard map[string]interfa
 		pattern = settings.DashboardsPathPattern
 	}
 
-	// Translate legacy placeholders like {id} to Go template variables before rendering
+	// Translate simple placeholders like {id} to Go template variables before
+	// rendering
 	pattern = translateToTemplate(pattern)
 
 	// Extract tags from dashboard and build tag map
@@ -282,15 +278,8 @@ func computeDashboardPath(settings *utils.Settings, dashboard map[string]interfa
 		Tags:          tagMap,
 	}
 
-	// Create template with custom function to handle missing tags
-	tmpl, err := template.New("path").Funcs(template.FuncMap{
-		"tag": func(key string) string {
-			if value, ok := tagMap[key]; ok {
-				return value
-			}
-			return "none"
-		},
-	}).Parse(pattern)
+	// Create template (no custom functions; missing tags render as empty string)
+	tmpl, err := template.New("path").Parse(pattern)
 	if err != nil {
 		// If template parsing fails, fall back to literal pattern
 		fmt.Fprintf(os.Stderr, "Warning: failed to parse path template: %v\n", err)
