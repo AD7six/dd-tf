@@ -1,6 +1,7 @@
 package dashboards
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"text/template"
 
 	"github.com/AD7six/dd-tf/internal/utils"
 	"github.com/spf13/cobra"
@@ -72,7 +74,7 @@ var DownloadCmd = &cobra.Command{
 func init() {
 	DownloadCmd.Flags().BoolVar(&allFlag, "all", false, "Download all dashboards")
 	DownloadCmd.Flags().BoolVar(&updateFlag, "update", false, "Update already-downloaded dashboards (scans existing files)")
-	DownloadCmd.Flags().StringVar(&outputPath, "output", "", "Output path or pattern (supports {DASHBOARDS_DIR}, {id}, {title})")
+	DownloadCmd.Flags().StringVar(&outputPath, "output", "", "Output path template (supports {{.DashboardsDir}}, {{.ID}}, {{.Title}}, {{.Tags.team}}, etc.)")
 	DownloadCmd.Flags().StringVar(&team, "team", "", "Team name (convenience for tag 'team:x')")
 	DownloadCmd.Flags().StringVar(&tags, "tags", "", "Comma-separated list of tags to filter dashboards")
 	DownloadCmd.Flags().StringVar(&dashboardID, "id", "", "Dashboard ID(s) to download (comma-separated)")
@@ -156,12 +158,9 @@ func downloadDashboardByID(id, targetPath string) error {
 		return err
 	}
 
-	// Get the dashboard title
-	title, _ := result["title"].(string)
-
 	// Compute path if not provided (--update uses existing path)
 	if targetPath == "" {
-		targetPath = computeDashboardPath(settings, id, title)
+		targetPath = computeDashboardPath(settings, result)
 	}
 
 	// Ensure directory exists
@@ -187,18 +186,82 @@ func downloadDashboardByID(id, targetPath string) error {
 	return nil
 }
 
-// computeDashboardPath computes the file path from the configured pattern or --output flag.
-// Supports placeholders: {DASHBOARDS_DIR}, {id}, {title}
-func computeDashboardPath(settings *utils.Settings, id, title string) string {
+// dashboardTemplateData holds the data available in path templates
+type dashboardTemplateData struct {
+	DashboardsDir string
+	ID            string
+	Title         string
+	Tags          map[string]string
+}
+
+// computeDashboardPath computes the file path from the configured pattern or --output flag using Go templates.
+// Template variables:
+//
+//	{{.DashboardsDir}} - the dashboards directory from settings
+//	{{.ID}} - dashboard ID
+//	{{.Title}} - sanitized dashboard title
+//	{{.Tags.team}} - value of "team" tag (or "none" if not found)
+//	{{.Tags.env}} - value of "env" tag (or "none" if not found)
+//	... any other tag name
+//
+// Custom functions:
+//
+//	{{tag "team"}} - returns tag value or "none" if not found
+func computeDashboardPath(settings *utils.Settings, dashboard map[string]interface{}) string {
 	// Use --output flag if provided, otherwise use setting
 	pattern := outputPath
 	if pattern == "" {
 		pattern = settings.DashboardsPathPattern
 	}
 
-	path := pattern
-	path = strings.ReplaceAll(path, "{DASHBOARDS_DIR}", settings.DashboardsDir)
-	path = strings.ReplaceAll(path, "{id}", id)
-	path = strings.ReplaceAll(path, "{title}", utils.SanitizeFilename(title))
-	return path
+	// Extract tags from dashboard and build tag map
+	tagMap := make(map[string]string)
+	if tagsInterface, ok := dashboard["tags"]; ok {
+		if tags, ok := tagsInterface.([]interface{}); ok {
+			for _, tagInterface := range tags {
+				if tag, ok := tagInterface.(string); ok {
+					// Tags are in format "key:value"
+					parts := strings.SplitN(tag, ":", 2)
+					if len(parts) == 2 {
+						key := strings.TrimSpace(parts[0])
+						value := strings.TrimSpace(parts[1])
+						tagMap[key] = utils.SanitizeFilename(value)
+					}
+				}
+			}
+		}
+	}
+
+	// Build template data
+	data := dashboardTemplateData{
+		DashboardsDir: settings.DashboardsDir,
+		ID:            dashboard["id"].(string),
+		Title:         utils.SanitizeFilename(dashboard["title"].(string)),
+		Tags:          tagMap,
+	}
+
+	// Create template with custom function to handle missing tags
+	tmpl, err := template.New("path").Funcs(template.FuncMap{
+		"tag": func(key string) string {
+			if value, ok := tagMap[key]; ok {
+				return value
+			}
+			return "none"
+		},
+	}).Parse(pattern)
+	if err != nil {
+		// If template parsing fails, fall back to literal pattern
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse path template: %v\n", err)
+		return filepath.Join(settings.DashboardsDir, dashboard["id"].(string)+".json")
+	}
+
+	// Execute template
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		// If execution fails, fall back to literal pattern
+		fmt.Fprintf(os.Stderr, "Warning: failed to execute path template: %v\n", err)
+		return filepath.Join(settings.DashboardsDir, dashboard["id"].(string)+".json")
+	}
+
+	return buf.String()
 }
