@@ -31,5 +31,7 @@ go.work.sum
 # .idea/
 # .vscode/
 
+# No tracking built asssets please
+bin/*
 # In this repo, don't want to track any data files
 data/*
