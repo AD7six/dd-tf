@@ -182,8 +182,8 @@ simpler code.
 ## Troubleshooting
 
 * 401/403 from the API: Check `DD_API_KEY`, `DD_APP_KEY`, and `DD_API_DOMAIN`.
-* 429 rate limit: The command will fail if rate-limited. Re-run after a short
-  delay; for large accounts consider limiting parallel requests (see Roadmap).
+* 5xx from the API: The API is having a bad day... struggle on or try again
+  later.
 * Files not where you expect: Verify `DASHBOARDS_PATH_PATTERN` or your
   `--output` flag and remember titles/tags are sanitized.
 
