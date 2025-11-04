@@ -89,8 +89,8 @@ Or by setting `DASHBOARDS_PATH_PATTERN`, `DASHBOARDS_FILENAME_PATTERN` or
 additionally the following placeholders are supported:
 
 * `{DASHBOARDS_DIR}`
-* `{id}`, 
-* `{title}`, 
+* `{id}`
+* `{title}`
 * `{team}`
 * `{anyTagKey}`
 
