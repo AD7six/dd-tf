@@ -75,7 +75,7 @@ var DownloadCmd = &cobra.Command{
 func init() {
 	DownloadCmd.Flags().BoolVar(&allFlag, "all", false, "Download all dashboards")
 	DownloadCmd.Flags().BoolVar(&updateFlag, "update", false, "Update already-downloaded dashboards (scans existing files)")
-	DownloadCmd.Flags().StringVar(&outputPath, "output", "", "Output path template (supports {DASHBOARDS_DIR}, {id}, {title}, {team} and Go templates like {{.DashboardsDir}}, {{.ID}}, {{.Title}}, {{.Tags.team}})")
+	DownloadCmd.Flags().StringVar(&outputPath, "output", "", "Output path template (supports {DASHBOARDS_DIR}, {id}, {title}, {team} and {any-tag}")
 	DownloadCmd.Flags().StringVar(&team, "team", "", "Team name (convenience for tag 'team:x')")
 	DownloadCmd.Flags().StringVar(&tags, "tags", "", "Comma-separated list of tags to filter dashboards")
 	DownloadCmd.Flags().StringVar(&dashboardID, "id", "", "Dashboard ID(s) to download (comma-separated)")
