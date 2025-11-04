@@ -20,10 +20,15 @@ This project applies every JSON file under `../data/dashboards` as a
 
 ```bash
 # From this folder
+$ tree ../data/dashboards # Previously download dashboards of interest
+../data/dashboards
+├── abc-def-gh1.json
+├── abc-def-gh2.json
+└── abc-def-gh3.json
 $ cp terraform.tfvars.json.example terraform.tfvars.json   
 $ vim terraform.tfvars.json # then edit values
 $ terraform init
-$ vim import.tf # edit to import, and not create, the dashboards
+$ make import.tf # generate import statements from dashboard files
 $ terraform plan
 ...
 Plan: 42 to import, 0 to add, 42 to change, 0 to destroy.
