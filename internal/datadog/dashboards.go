@@ -6,9 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
-	"time"
 
 	"github.com/AD7six/dd-tf/internal/utils"
 	"github.com/spf13/cobra"
@@ -102,55 +100,20 @@ func downloadDashboardByID(id string) error {
 		return err
 	}
 
+	// Create HTTP client with retry logic
+	client := utils.NewDatadogHTTPClient(settings.APIKey, settings.AppKey, settings.Retry429MaxAttempts)
 	url := fmt.Sprintf("https://%s/api/v1/dashboard/%s", settings.APIDomain, id)
 
-	var resp *http.Response
-	var lastErr error
-	for attempt := 0; attempt <= settings.Retry429MaxAttempts; attempt++ {
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			return err
-		}
-		req.Header.Set("DD-API-KEY", settings.APIKey)
-		req.Header.Set("DD-APPLICATION-KEY", settings.AppKey)
-
-		resp, err = http.DefaultClient.Do(req)
-		if err != nil {
-			lastErr = err
-			// transient network error; retry like 429s
-		} else if resp.StatusCode == http.StatusTooManyRequests { // 429
-			// use Retry-After if present, else exponential backoff
-			wait := retryAfterDelay(resp, attempt)
-			// Drain body before retry
-			io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
-			if attempt < settings.Retry429MaxAttempts {
-				time.Sleep(wait)
-				continue
-			}
-			// no more retries; capture as error
-			body, _ := io.ReadAll(resp.Body)
-			lastErr = fmt.Errorf("rate limited (429) after %d retries: %s", attempt, string(body))
-		} else if resp.StatusCode != http.StatusOK {
-			// Non-429, non-OK: return immediately
-			body, _ := io.ReadAll(resp.Body)
-			resp.Body.Close()
-			return fmt.Errorf("API error: %s\n%s", resp.Status, string(body))
-		} else {
-			// OK
-			break
-		}
-
-		if attempt < settings.Retry429MaxAttempts {
-			// sleep a small backoff if we didn't already (network error path)
-			time.Sleep(retryAfterDelay(nil, attempt))
-			continue
-		}
-	}
-	if resp == nil {
-		return lastErr
+	resp, err := client.GetWithRetry(url)
+	if err != nil {
+		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API error: %s\n%s", resp.Status, string(body))
+	}
 
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -168,26 +131,4 @@ func downloadDashboardByID(id string) error {
 	}
 	fmt.Printf("Dashboard saved to %s\n", filename)
 	return nil
-}
-
-// retryAfterDelay returns a delay to wait before the next retry.
-// If resp is non-nil and contains a valid Retry-After header (seconds), it is used.
-// Otherwise it falls back to an exponential backoff: 1s, 2s, 4s, ... capped at 30s.
-func retryAfterDelay(resp *http.Response, attempt int) time.Duration {
-	if resp != nil {
-		if ra := resp.Header.Get("Retry-After"); ra != "" {
-			if secs, err := strconv.Atoi(ra); err == nil && secs >= 0 {
-				return time.Duration(secs) * time.Second
-			}
-		}
-	}
-	// exponential backoff
-	d := time.Second << attempt
-	if d > 30*time.Second {
-		d = 30 * time.Second
-	}
-	if d < time.Second {
-		d = time.Second
-	}
-	return d
 }
