@@ -1,0 +1,5 @@
+{
+  "dd_api_key": "YOUR_API_KEY",
+  "dd_app_key": "YOUR_APP_KEY",
+  "dd_api_url": "https://api.datadoghq.com"
+}
