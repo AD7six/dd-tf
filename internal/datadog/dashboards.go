@@ -81,6 +81,48 @@ func init() {
 	DownloadCmd.Flags().StringVar(&dashboardID, "id", "", "Dashboard ID(s) to download (comma-separated)")
 }
 
+// fetchAllDashboardIDs queries the Datadog API to retrieve all dashboard IDs.
+func fetchAllDashboardIDs() ([]string, error) {
+	settings, err := utils.LoadSettings()
+	if err != nil {
+		return nil, err
+	}
+
+	client := utils.NewDatadogHTTPClient(settings.APIKey, settings.AppKey, settings.Retry429MaxAttempts)
+	url := fmt.Sprintf("https://%s/api/v1/dashboard", settings.APIDomain)
+
+	resp, err := client.GetWithRetry(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch dashboards: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %s\n%s", resp.Status, string(body))
+	}
+
+	// Parse response to extract dashboard IDs
+	var result struct {
+		Dashboards []struct {
+			ID string `json:"id"`
+		} `json:"dashboards"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	ids := make([]string, 0, len(result.Dashboards))
+	for _, dashboard := range result.Dashboards {
+		if dashboard.ID != "" {
+			ids = append(ids, dashboard.ID)
+		}
+	}
+
+	return ids, nil
+}
+
 // generateDashboardTargets returns a channel that yields dashboard IDs and target paths.
 // For --update mode, uses existing file paths. For other modes, computes paths from pattern.
 func generateDashboardTargets() (<-chan dashboardTarget, error) {
@@ -108,7 +150,24 @@ func generateDashboardTargets() (<-chan dashboardTarget, error) {
 		return out, nil
 	}
 
-	// Other modes: compute path from pattern (pattern will be resolved with title later)
+	// --all: fetch all dashboard IDs from API
+	if allFlag {
+		go func() {
+			defer close(out)
+			ids, err := fetchAllDashboardIDs()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: failed to fetch all dashboards: %v\n", err)
+				return
+			}
+			for _, id := range ids {
+				// Path will be computed in download function with actual title
+				out <- dashboardTarget{ID: id, Path: ""} // empty path means use pattern
+			}
+		}()
+		return out, nil
+	}
+
+	// --id: download specific dashboards by ID
 	if dashboardID != "" {
 		ids := utils.ParseCommaSeparatedIDs(dashboardID)
 		go func() {
@@ -122,13 +181,13 @@ func generateDashboardTargets() (<-chan dashboardTarget, error) {
 	}
 
 	// Placeholders for future implementations
-	if allFlag || team != "" || tags != "" {
+	if team != "" || tags != "" {
 		close(out)
-		return nil, fmt.Errorf("selectors --all/--team/--tags not implemented yet; please use --id or --update")
+		return nil, fmt.Errorf("selectors --team/--tags not implemented yet; please use --id, --all, or --update")
 	}
 
 	close(out)
-	return nil, fmt.Errorf("please specify --id or --update (other selectors not implemented yet)")
+	return nil, fmt.Errorf("please specify --id, --all, or --update (other selectors not implemented yet)")
 }
 
 // downloadDashboardByID fetches a dashboard by ID from the Datadog API and writes to the specified path.
