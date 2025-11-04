@@ -74,3 +74,58 @@ func SanitizeFilename(name string) string {
 	re := regexp.MustCompile(`[^a-zA-Z0-9]+`)
 	return strings.Trim(re.ReplaceAllString(name, "-"), "-")
 }
+
+// ExtractIDsFromJSONFiles scans a directory for JSON files and extracts IDs from their content.
+// Returns a map of id -> absolute file path.
+// Each JSON file must have an "id" field at the top level.
+func ExtractIDsFromJSONFiles(dir string) (map[string]string, error) {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("directory does not exist: %s", dir)
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read directory: %w", err)
+	}
+
+	result := make(map[string]string)
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		filename := entry.Name()
+		if !strings.HasSuffix(filename, ".json") {
+			continue
+		}
+
+		// Read JSON file and extract "id" field
+		absPath := filepath.Join(dir, filename)
+		data, err := os.ReadFile(absPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to read %s: %v\n", filename, err)
+			continue
+		}
+
+		var content map[string]interface{}
+		if err := json.Unmarshal(data, &content); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v\n", filename, err)
+			continue
+		}
+
+		id, ok := content["id"].(string)
+		if !ok || id == "" {
+			fmt.Fprintf(os.Stderr, "Warning: no valid 'id' field in %s\n", filename)
+			continue
+		}
+
+		// Store the first occurrence; duplicates are logged but not stored
+		if existing, exists := result[id]; exists {
+			fmt.Fprintf(os.Stderr, "Warning: duplicate id '%s' in %s (already found in %s)\n", id, filename, filepath.Base(existing))
+		} else {
+			result[id] = absPath
+		}
+	}
+
+	return result, nil
+}

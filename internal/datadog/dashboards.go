@@ -14,6 +14,7 @@ import (
 
 var (
 	allFlag     bool
+	updateFlag  bool
 	team        string
 	tags        string
 	dashboardID string
@@ -61,15 +62,37 @@ var DownloadCmd = &cobra.Command{
 
 func init() {
 	DownloadCmd.Flags().BoolVar(&allFlag, "all", false, "Download all dashboards")
+	DownloadCmd.Flags().BoolVar(&updateFlag, "update", false, "Update already-downloaded dashboards (scans existing files)")
 	DownloadCmd.Flags().StringVar(&team, "team", "", "Team name (convenience for tag 'team:x')")
 	DownloadCmd.Flags().StringVar(&tags, "tags", "", "Comma-separated list of tags to filter dashboards")
 	DownloadCmd.Flags().StringVar(&dashboardID, "id", "", "Dashboard ID(s) to download (comma-separated)")
 }
 
 // generateDashboardIDs returns a channel that yields dashboard IDs to download.
-// For now, only the --id flag is supported; other selectors are not yet implemented.
+// For now, only the --id and --update flags are supported; other selectors are not yet implemented.
 func generateDashboardIDs() (<-chan string, error) {
 	out := make(chan string)
+
+	// --update: scan existing dashboard files and extract IDs
+	if updateFlag {
+		settings, err := utils.LoadSettings()
+		if err != nil {
+			close(out)
+			return nil, err
+		}
+		go func() {
+			defer close(out)
+			idToPath, err := utils.ExtractIDsFromJSONFiles(settings.DashboardsDir)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to scan directory: %v\n", err)
+				return
+			}
+			for id := range idToPath {
+				out <- id
+			}
+		}()
+		return out, nil
+	}
 
 	// Only implement explicit --id for now
 	if dashboardID != "" {
@@ -86,11 +109,11 @@ func generateDashboardIDs() (<-chan string, error) {
 	// Placeholders for future implementations
 	if allFlag || team != "" || tags != "" {
 		close(out)
-		return nil, fmt.Errorf("selectors --all/--team/--tags not implemented yet; please use --id")
+		return nil, fmt.Errorf("selectors --all/--team/--tags not implemented yet; please use --id or --update")
 	}
 
 	close(out)
-	return nil, fmt.Errorf("please specify --id (other selectors not implemented yet)")
+	return nil, fmt.Errorf("please specify --id or --update (other selectors not implemented yet)")
 }
 
 // downloadDashboardByID fetches a dashboard by ID from the Datadog API and writes the JSON to data/dashboards/<ID>-title.json.
