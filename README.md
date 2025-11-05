@@ -1,6 +1,7 @@
 # dd-tf
 
 [![CI](https://github.com/AD7six/dd-tf/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AD7six/dd-tf/actions/workflows/ci.yml)
+[![AIL 3](https://img.shields.io/badge/AIL-3-blue)](https://danielmiessler.com/blog/ai-influence-level-ail)
 
 Datadog ⇄ Terraform helper CLI.
 
