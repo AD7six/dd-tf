@@ -27,6 +27,12 @@ type DashboardTarget struct {
 	CompleteData map[string]any
 }
 
+// DashboardTargetResult wraps a DashboardTarget with a potential error from target generation.
+type DashboardTargetResult struct {
+	Target DashboardTarget
+	Err    error
+}
+
 // DownloadOptions contains options for downloading dashboards.
 type DownloadOptions struct {
 	All         bool
@@ -239,8 +245,9 @@ func hasAllTags(dashboardTags, filterTags []string) bool {
 
 // GenerateDashboardTargets returns a channel that yields dashboard IDs and target paths.
 // For --update mode, uses existing file paths. For other modes, computes paths from pattern.
-func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTarget, error) {
-	out := make(chan DashboardTarget)
+// Errors during target generation are returned as part of DashboardTargetResult.
+func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResult, error) {
+	out := make(chan DashboardTargetResult)
 
 	settings, err := utils.LoadSettings()
 	if err != nil {
@@ -254,11 +261,11 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTarget, err
 			defer close(out)
 			idToPath, err := utils.ExtractIDsFromJSONFiles(settings.DashboardsDir)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to scan directory: %v\n", err)
+				out <- DashboardTargetResult{Err: fmt.Errorf("failed to scan directory: %w", err)}
 				return
 			}
 			for id, path := range idToPath {
-				out <- DashboardTarget{ID: id, Path: path}
+				out <- DashboardTargetResult{Target: DashboardTarget{ID: id, Path: path}}
 			}
 		}()
 		return out, nil
@@ -270,12 +277,12 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTarget, err
 			defer close(out)
 			ids, err := FetchAllDashboardIDs()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: failed to fetch all dashboards: %v\n", err)
+				out <- DashboardTargetResult{Err: fmt.Errorf("failed to fetch all dashboards: %w", err)}
 				return
 			}
 			for _, id := range ids {
 				// Path will be computed in download function with actual title
-				out <- DashboardTarget{ID: id, Path: ""} // empty path means use pattern
+				out <- DashboardTargetResult{Target: DashboardTarget{ID: id, Path: ""}} // empty path means use pattern
 			}
 		}()
 		return out, nil
@@ -288,7 +295,7 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTarget, err
 			defer close(out)
 			for _, id := range ids {
 				// Path will be computed in download function with actual title
-				out <- DashboardTarget{ID: id, Path: ""} // empty path means use pattern
+				out <- DashboardTargetResult{Target: DashboardTarget{ID: id, Path: ""}} // empty path means use pattern
 			}
 		}()
 		return out, nil
@@ -312,7 +319,7 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTarget, err
 			defer close(out)
 			dashboards, err := FetchDashboardsWithTagsFiltered(filterTags)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: failed to fetch dashboards by tags: %v\n", err)
+				out <- DashboardTargetResult{Err: fmt.Errorf("failed to fetch dashboards by tags: %w", err)}
 				return
 			}
 			if len(dashboards) == 0 {
@@ -320,7 +327,7 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTarget, err
 			}
 			for id, data := range dashboards {
 				// Include cached data to avoid duplicate API call
-				out <- DashboardTarget{ID: id, Path: "", CompleteData: data}
+				out <- DashboardTargetResult{Target: DashboardTarget{ID: id, Path: "", CompleteData: data}}
 			}
 		}()
 		return out, nil

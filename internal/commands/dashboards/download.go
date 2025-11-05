@@ -55,8 +55,14 @@ func runDownload(allFlag, updateFlag bool, outputPath, team, tags, dashboardID s
 	var wg sync.WaitGroup
 	errCh := make(chan error, 8)
 
-	for target := range targetsCh {
-		target := target // capture
+	for result := range targetsCh {
+		// Check if target generation failed
+		if result.Err != nil {
+			errCh <- result.Err
+			continue
+		}
+
+		target := result.Target // capture
 		fmt.Printf("Downloading dashboard with ID: %s\n", target.ID)
 		wg.Add(1)
 		go func() {
