@@ -16,13 +16,6 @@ hit problems such as things being changed (unintentionally) by colleagues. How
 can you see what has changed, and if necessary restore an earlier version?
 
 That's the general context for this cli, with dashboards being the start point.
-There are two primary use cases for which this cli was written:
-
-* A frictionless process to manage and make updates to important dashboards.
-* Wanting an archive of all dashboards, without enabling the Audit trail.
-
-See below for elaboration on each of these use cases, and how this cli can help
-simplify things.
 
 ## What it does
 
