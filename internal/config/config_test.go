@@ -342,10 +342,8 @@ func TestLoadSettings(t *testing.T) {
 		os.Unsetenv("DD_API_KEY")
 		os.Unsetenv("DD_APP_KEY")
 		os.Unsetenv("DD_SITE")
-		os.Unsetenv("DD_API_DOMAIN")
 		os.Unsetenv("DASHBOARDS_DIR")
 		os.Unsetenv("DASHBOARDS_PATH_TEMPLATE")
-		os.Unsetenv("DASHBOARDS_PATH_PATTERN")
 		os.Unsetenv("DD_HTTP_TIMEOUT")
 	}
 	cleanup()

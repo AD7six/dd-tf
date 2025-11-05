@@ -23,7 +23,7 @@ type Settings struct {
 
 // LoadSettings loads configuration from environment variables and optional .env file.
 // Required environment variables: DD_API_KEY, DD_APP_KEY.
-// Optional variables: DD_API_DOMAIN, DASHBOARDS_DIR, DASHBOARDS_FILENAME_PATTERN, DASHBOARDS_PATH_PATTERN.
+// Optional variables: DD_SITE, DASHBOARDS_DIR, DASHBOARDS_FILENAME_PATTERN, DASHBOARDS_PATH_TEMPLATE.
 func LoadSettings() (*Settings, error) {
 	// If .env exists, try to load it
 	if _, err := os.Stat(".env"); err == nil {
@@ -42,7 +42,6 @@ func LoadSettings() (*Settings, error) {
 		return nil, err
 	}
 
-	// Determine site from DD_SITE (e.g., datadoghq.com).
 	site := getEnv("DD_SITE", "datadoghq.com")
 
 	dashboardsDir := getEnv("DASHBOARDS_DIR", "data/dashboards")

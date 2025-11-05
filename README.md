@@ -55,19 +55,18 @@ Minimum required:
 
 Optional:
 
-* `DD_API_DOMAIN` – Datadog site API domain (default: `api.datadoghq.com`)
+* `DD_SITE` – Datadog [site paramter](https://docs.datadoghq.com/getting_started/site/) (default: `datadoghq.com`)
 * `DASHBOARDS_DIR` – base folder for dashboard files (default: `data/dashboards`)
-* `DASHBOARDS_FILENAME_PATTERN` – filename pattern (default: `{id}.json`)
-* `DASHBOARDS_PATH_PATTERN` – full path pattern (default: `{DASHBOARDS_DIR}/{id}.json`)
+* `DASHBOARDS_PATH_TEMPLATE` – full path pattern (default: `{DASHBOARDS_DIR}/{id}.json`)
 
 Create a `.env` file in your repo root:
 
 ```dotenv
 DD_API_KEY=your_api_key
 DD_APP_KEY=your_app_key
-# DD_API_DOMAIN=api.datadoghq.eu
+# DD_SITE=datadoghq.eu
 # DASHBOARDS_DIR=data/dashboards
-# DASHBOARDS_PATH_PATTERN={DASHBOARDS_DIR}/{team}/{title}-{id}.json
+# DASHBOARDS_PATH_TEMPLATE={DASHBOARDS_DIR}/{team}/{title}-{id}.json
 ```
 
 ### Path templating
@@ -80,9 +79,9 @@ This can be overridden via cli arguments:
 dd-tf dashboards download --all --output='/somewhere/else/{id}-{title}.json'
 ```
 
-Or by setting `DASHBOARDS_PATH_PATTERN`, `DASHBOARDS_FILENAME_PATTERN` or
-`DASHBOARDS_DIR` environment variables. Literal strings can of course be used,
-additionally the following placeholders are supported:
+Or by setting `DASHBOARDS_DIR` or `DASHBOARDS_PATH_TEMPLATE` environment
+variables. Literal strings can of course be used, additionally the following
+placeholders are supported:
 
 * `{DASHBOARDS_DIR}`
 * `{id}`
@@ -136,23 +135,19 @@ bin/dd-tf dashboards download --all
 bin/dd-tf dashboards download --team=platform
 ```
 
-Notes:
-
-* The tool prints each file path it writes (or errors if any).
-
 ## End-to-end workflow
 
 ### UI → file → Terraform
 
-_See the `./terraform` folder for an example, functional terraform project._
+_See the `./terraform` folder for an example, functional, terraform project._
 
 1. Make your changes in the Datadog UI.
 2. Download/update the json files to your terraform project:
      - For one dashboard: `dd-tf dashboards download --id=<id>`
      - For all dashboards: `dd-tf dashboards download --all`
      - To refresh all existing tracked dashboards to match current state: `dd-tf dashboards download --update`
-4. Commit the resulting JSON files.
-5. Reference the JSON in Terraform using the Datadog provider - see
+3. Commit the resulting JSON files.
+4. Reference the JSON in Terraform using the Datadog provider - see
    `./terraform` project for details.
 
 ### Drift/unwanted change → revert
@@ -163,9 +158,9 @@ Unwanted changes to something? Re-apply your last committed Terraform configurat
 terraform apply
 ```
 
-3. Optionally re-run `dd-tf dashboards download --update` to confirm the remote now matches your files.
+1. Optionally re-run `dd-tf dashboards download --update` to confirm the remote now matches your files.
 
-## Design choice: raw JSON over the official Datadog Go client
+## Design choice: Datadog has a Go client
 
 I intentionally chose not to use the official Datadog Go API client for this
 tool. I previously found it can lag behind new features and may not even expose
@@ -177,10 +172,10 @@ simpler code.
 
 ## Troubleshooting
 
-* 401/403 from the API: Check `DD_API_KEY`, `DD_APP_KEY`, and `DD_API_DOMAIN`.
+* 401/403 from the API: Check `DD_API_KEY`, `DD_APP_KEY`, and `DD_SITE`.
 * 5xx from the API: The API is having a bad day... struggle on or try again
   later.
-* Files not where you expect: Verify `DASHBOARDS_PATH_PATTERN` or your
+* Files not where you expect: Verify `DASHBOARDS_PATH_TEMPLATE` or your
   `--output` flag and remember titles/tags are sanitized.
 
 ## Repository layout
