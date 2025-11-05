@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -324,15 +325,14 @@ func TestExtractIDsFromJSONFiles(t *testing.T) {
 
 		// Create a file larger than 1MB (maxJSONFileSize)
 		largeFile := filepath.Join(tmpDir, "large.json")
-		// Create a buffer larger than 1MB with valid JSON structure
-		largeContent := `{"id": "large-id", "data": "`
-		// Add enough data to exceed 1MB
-		for len(largeContent) < maxJSONFileSize+1000 {
-			largeContent += "x"
-		}
-		largeContent += `"}`
+		prefix := []byte(`{"id": "large-id", "data": "`)
+		suffix := []byte(`"}`)
+		paddingSize := maxJSONFileSize + 1000 - len(prefix) - len(suffix)
+		padding := bytes.Repeat([]byte("x"), paddingSize)
 
-		if err := os.WriteFile(largeFile, []byte(largeContent), 0644); err != nil {
+		largeContent := append(append(prefix, padding...), suffix...)
+
+		if err := os.WriteFile(largeFile, largeContent, 0644); err != nil {
 			t.Fatalf("Failed to create large file: %v", err)
 		}
 
