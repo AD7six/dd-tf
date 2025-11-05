@@ -433,22 +433,6 @@ func translateToTemplate(p string) string {
 	return p
 }
 
-// wrapTagReferencesWithDefaults wraps {{.Tags.xxx}} patterns to provide "none" as default
-// for missing tag keys, avoiding "<no value>" in template output.
-func wrapTagReferencesWithDefaults(pattern string) string {
-	// Match {{.Tags.something}} and replace with {{if index .Tags "something"}}{{index .Tags "something"}}{{else}}none{{end}}
-	re := regexp.MustCompile(`\{\{\.Tags\.([A-Za-z0-9_\-]+)\}\}`)
-	return re.ReplaceAllStringFunc(pattern, func(m string) string {
-		sub := re.FindStringSubmatch(m)
-		if len(sub) != 2 {
-			return m
-		}
-		tagKey := sub[1]
-		// Use index function which safely returns zero value for missing keys, then check if it's empty
-		return fmt.Sprintf(`{{if index .Tags "%s"}}{{index .Tags "%s"}}{{else}}none{{end}}`, tagKey, tagKey)
-	})
-}
-
 // ComputeDashboardPath computes the file path from the configured pattern or outputPath override using Go templates.
 // Template variables:
 //
@@ -510,12 +494,8 @@ func ComputeDashboardPath(settings *utils.Settings, dashboard map[string]any, ou
 		Tags:          tagMap,
 	}
 
-	// Wrap tag references in the pattern to provide default "none" for missing keys
-	// Replace {{.Tags.xxx}} with {{if index .Tags "xxx"}}{{index .Tags "xxx"}}{{else}}none{{end}}
-	wrappedPattern := wrapTagReferencesWithDefaults(pattern)
-
 	// Create template
-	tmpl, err := template.New("path").Parse(wrappedPattern)
+	tmpl, err := template.New("path").Parse(pattern)
 	if err != nil {
 		// If template parsing fails, fall back to literal pattern
 		fmt.Fprintf(os.Stderr, "Warning: failed to parse path template: %v\n", err)
@@ -530,5 +510,7 @@ func ComputeDashboardPath(settings *utils.Settings, dashboard map[string]any, ou
 		return filepath.Join(settings.DashboardsDir, id+".json")
 	}
 
-	return buf.String()
+	// Replace "<no value>" (from missing tags) with "none"
+	result := strings.ReplaceAll(buf.String(), "<no value>", "none")
+	return result
 }
