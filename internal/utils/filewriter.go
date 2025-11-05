@@ -9,6 +9,12 @@ import (
 	"strings"
 )
 
+const (
+	// maxJSONFileSize all files should be less than 1MB so use that as a cut
+	// off to avoid reading invalid, extremely large, files
+	maxJSONFileSize = 1024 * 1024 // 1MB
+)
+
 var (
 	// nonAlphanumericRegex matches any non-alphanumeric characters for filename sanitization
 	nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9]+`)
@@ -66,6 +72,12 @@ func ExtractIDsFromJSONFiles(dir string) (map[string]string, error) {
 
 		// Only process .json files
 		if !strings.HasSuffix(info.Name(), ".json") {
+			return nil
+		}
+
+		// Check file size before reading
+		if info.Size() > maxJSONFileSize {
+			fmt.Fprintf(os.Stderr, "Warning: skipping %s (file too large: %d bytes, max %d bytes)\n", path, info.Size(), maxJSONFileSize)
 			return nil
 		}
 

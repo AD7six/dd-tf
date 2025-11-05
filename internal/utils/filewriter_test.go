@@ -312,6 +312,49 @@ func TestExtractIDsFromJSONFiles(t *testing.T) {
 			t.Errorf("ExtractIDsFromJSONFiles() = %v, want %v", got, want)
 		}
 	})
+
+	t.Run("skips files exceeding size limit", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		// Create a valid small file
+		smallFile := filepath.Join(tmpDir, "small.json")
+		if err := os.WriteFile(smallFile, []byte(`{"id": "small-id"}`), 0644); err != nil {
+			t.Fatalf("Failed to create small file: %v", err)
+		}
+
+		// Create a file larger than 1MB (maxJSONFileSize)
+		largeFile := filepath.Join(tmpDir, "large.json")
+		// Create a buffer larger than 1MB with valid JSON structure
+		largeContent := `{"id": "large-id", "data": "`
+		// Add enough data to exceed 1MB
+		for len(largeContent) < maxJSONFileSize+1000 {
+			largeContent += "x"
+		}
+		largeContent += `"}`
+
+		if err := os.WriteFile(largeFile, []byte(largeContent), 0644); err != nil {
+			t.Fatalf("Failed to create large file: %v", err)
+		}
+
+		got, err := ExtractIDsFromJSONFiles(tmpDir)
+		if err != nil {
+			t.Fatalf("ExtractIDsFromJSONFiles() unexpected error: %v", err)
+		}
+
+		// Should only have the small file's ID
+		if len(got) != 1 {
+			t.Errorf("ExtractIDsFromJSONFiles() returned %d items, want 1 (large file should be skipped)", len(got))
+		}
+
+		if _, ok := got["small-id"]; !ok {
+			t.Error("ExtractIDsFromJSONFiles() missing id 'small-id'")
+		}
+
+		// Should NOT have the large file's ID
+		if _, ok := got["large-id"]; ok {
+			t.Error("ExtractIDsFromJSONFiles() should have skipped 'large-id' from oversized file")
+		}
+	})
 }
 
 func TestWriteJSONFile(t *testing.T) {
