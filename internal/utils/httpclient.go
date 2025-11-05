@@ -17,11 +17,14 @@ type DatadogHTTPClient struct {
 	// concurrency limiter
 	sem chan struct{}
 
-	// retries for errors (including 5xx) and 429s
+	// max retries for errors (including 5xx) and 429s
 	retries int
 
-	// global pause after receiving 429; all requests wait until pauseUntil
-	mu         sync.Mutex
+	// If we receive a 429 all http requests wait until pauseUntil; if requests
+	// aren't all subject to the same api rate limit (not all to the same api
+	// endpoint) this will be a little conservative - but otherwise prevents
+	// continuing to make requests we know will fail.
+	pause      sync.Mutex
 	pauseUntil time.Time
 }
 
@@ -35,14 +38,10 @@ var (
 	sharedClient *DatadogHTTPClient
 )
 
-// NewDatadogHTTPClient creates a new client with the given credentials.
-// Deprecated: prefer GetHTTPClient to share queue/pauses across requests.
-func NewDatadogHTTPClient(apiKey, appKey string) *DatadogHTTPClient {
-	return newClient(apiKey, appKey, defaultMaxConcurrency, defaultRetries)
-}
-
 // GetHTTPClient returns a shared client instance to ensure concurrency limiting and 429 pauses
-// are coordinated across all requests in this process.
+// are coordinated across all requests in this process. If we want in the future
+// to have multiple clients (for different api endpoints, with separate rate
+// limits) we can add that later.
 func GetHTTPClient(apiKey, appKey string) *DatadogHTTPClient {
 	sharedOnce.Do(func() {
 		sharedClient = newClient(apiKey, appKey, defaultMaxConcurrency, defaultRetries)
@@ -66,9 +65,10 @@ func newClient(apiKey, appKey string, maxConcurrent, retries int) *DatadogHTTPCl
 	}
 }
 
-// Get performs a GET request with Datadog auth headers, honoring concurrency limits
-// and retrying 429s (after Retry-After) and other errors up to c.retries times.
-// If a 429 is received, all subsequent requests will wait until the Retry-After window passes.
+// Get performs a GET request with Datadog auth headers, honoring concurrency
+// limits and retrying 429s (after Retry-After) and other errors up to c.retries
+// times.  If a 429 is received, all subsequent requests will wait until the
+// Retry-After window passes.
 func (c *DatadogHTTPClient) Get(url string) (*http.Response, error) {
 	// Acquire concurrency slot
 	c.sem <- struct{}{}
@@ -147,10 +147,10 @@ func backoffDuration(attempt int) time.Duration {
 
 func (c *DatadogHTTPClient) waitIfPaused() {
 	for {
-		c.mu.Lock()
+		c.pause.Lock()
 		now := time.Now()
 		until := c.pauseUntil
-		c.mu.Unlock()
+		c.pause.Unlock()
 		if until.IsZero() || now.After(until) || now.Equal(until) {
 			return
 		}
@@ -162,13 +162,13 @@ func (c *DatadogHTTPClient) setPause(d time.Duration) {
 	if d <= 0 {
 		d = time.Second
 	}
-	c.mu.Lock()
+	c.pause.Lock()
 	// If there is already a longer pause in place, keep it
 	proposed := time.Now().Add(d)
 	if proposed.After(c.pauseUntil) {
 		c.pauseUntil = proposed
 	}
-	c.mu.Unlock()
+	c.pause.Unlock()
 }
 
 func parseRetryAfter(resp *http.Response) time.Duration {
@@ -179,7 +179,7 @@ func parseRetryAfter(resp *http.Response) time.Duration {
 		if secs, err := strconv.Atoi(ra); err == nil && secs >= 0 {
 			return time.Duration(secs) * time.Second
 		}
-		// Could be an HTTP date; ignore for simplicity
+		// Could be a HTTP date; ignore for simplicity
 	}
 	return time.Second
 }
