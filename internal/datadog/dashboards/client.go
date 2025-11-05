@@ -297,13 +297,6 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 	return nil, fmt.Errorf("please specify --id, --all, --team, --tags, or --update")
 }
 
-// DownloadDashboard fetches a dashboard and writes it to the specified path.
-// Uses cached data from target.CompleteData if available to avoid duplicate API calls.
-// If target.Path is empty, computes the path using the configured pattern.
-func DownloadDashboard(target DashboardTarget) error {
-	return DownloadDashboardWithOptions(target, "")
-}
-
 // DownloadDashboardWithOptions fetches a dashboard and writes it to the specified path.
 // Uses cached data from target.CompleteData if available to avoid duplicate API calls.
 // If target.Path is empty, computes the path using the configured pattern or outputPath override.
