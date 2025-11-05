@@ -55,17 +55,9 @@ type DownloadOptions struct {
 	DashboardID string // Comma-separated list of dashboard IDs to download
 }
 
-// FetchAllDashboardIDs queries the Datadog API to retrieve all dashboard IDs.
-func FetchAllDashboardIDs() ([]string, error) {
-	return fetchDashboardIDsByTags(nil)
-}
-
-// fetchDashboardIDsByTags queries the Datadog API to retrieve dashboard IDs,
-// optionally filtered by tags. If filterTags is nil or empty, returns all
-// dashboards.
-// Note: The index endpoint doesn't return tags, so when filtering by tags or
-// team we must (eugh) fetch each dashboard individually.
-func fetchDashboardIDsByTags(filterTags []string) ([]string, error) {
+// fetchAndFilterDashboards fetches dashboards from the Datadog API, optionally filtered by tags.
+// If fullData is true, returns complete dashboard data; if false, returns minimal data (just IDs).
+func fetchAndFilterDashboards(filterTags []string, fullData bool) (map[string]map[string]any, error) {
 	settings, err := utils.LoadSettings()
 	if err != nil {
 		return nil, err
@@ -99,103 +91,25 @@ func fetchDashboardIDsByTags(filterTags []string) ([]string, error) {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// If no filtering, return all IDs
-	if len(filterTags) == 0 {
-		ids := make([]string, 0, len(result.Dashboards))
+	// If no filtering and we don't need full data, return early with just IDs
+	if len(filterTags) == 0 && !fullData {
+		dashboards := make(map[string]map[string]any, len(result.Dashboards))
 		for _, dashboard := range result.Dashboards {
 			if dashboard.ID != "" {
-				ids = append(ids, dashboard.ID)
+				dashboards[dashboard.ID] = nil // No data needed, just ID
 			}
 		}
-		return ids, nil
+		return dashboards, nil
 	}
 
-	// When filtering by tags, we need to fetch each dashboard individually
-	// because the index endpoint doesn't include tags
-	ids := make([]string, 0)
-	for _, dashboard := range result.Dashboards {
-		if dashboard.ID == "" {
-			continue
-		}
-
-		// Fetch full dashboard to get tags
-		dashboardURL := fmt.Sprintf("https://%s/api/v1/dashboard/%s", settings.APIDomain, dashboard.ID)
-		dashResp, err := client.Get(dashboardURL)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to fetch dashboard %s: %v\n", dashboard.ID, err)
-			continue
-		}
-
-		if dashResp.StatusCode != http.StatusOK {
-			dashResp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Warning: failed to fetch dashboard %s: %s\n", dashboard.ID, dashResp.Status)
-			continue
-		}
-
-		var dashData struct {
-			Tags []string `json:"tags"`
-		}
-
-		if err := json.NewDecoder(dashResp.Body).Decode(&dashData); err != nil {
-			dashResp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Warning: failed to decode dashboard %s: %v\n", dashboard.ID, err)
-			continue
-		}
-		dashResp.Body.Close()
-
-		// Check if dashboard has all required filter tags
-		if hasAllTags(dashData.Tags, filterTags) {
-			ids = append(ids, dashboard.ID)
-		}
-	}
-
-	return ids, nil
-}
-
-// FetchDashboardsWithTagsFiltered fetches full dashboard data for dashboards matching the given tags.
-// Returns a map of dashboard ID to dashboard data to avoid duplicate API calls.
-func FetchDashboardsWithTagsFiltered(filterTags []string) (map[string]map[string]any, error) {
-	settings, err := utils.LoadSettings()
-	if err != nil {
-		return nil, err
-	}
-
-	client := utils.GetHTTPClient(settings)
-	url := fmt.Sprintf("https://%s/api/v1/dashboard", settings.APIDomain)
-
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch dashboards: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
-		if err != nil {
-			return nil, fmt.Errorf("API error %s (failed to read response body: %w)", resp.Status, err)
-		}
-		return nil, fmt.Errorf("API error: %s\n%s", resp.Status, string(body))
-	}
-
-	// Parse response to get dashboard IDs
-	var result struct {
-		Dashboards []struct {
-			ID string `json:"id"`
-		} `json:"dashboards"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	// Fetch each dashboard individually to check tags and cache the data
+	// Fetch individual dashboards when filtering or when full data is needed
 	dashboards := make(map[string]map[string]any)
 	for _, dashboard := range result.Dashboards {
 		if dashboard.ID == "" {
 			continue
 		}
 
-		// Fetch full dashboard to get tags
+		// Fetch full dashboard to get tags (and potentially cache the data)
 		dashboardURL := fmt.Sprintf("https://%s/api/v1/dashboard/%s", settings.APIDomain, dashboard.ID)
 		dashResp, err := client.Get(dashboardURL)
 		if err != nil {
@@ -231,7 +145,11 @@ func FetchDashboardsWithTagsFiltered(filterTags []string) (map[string]map[string
 
 		// Check if dashboard has all required filter tags
 		if hasAllTags(tags, filterTags) {
-			dashboards[dashboard.ID] = dashData
+			if fullData {
+				dashboards[dashboard.ID] = dashData
+			} else {
+				dashboards[dashboard.ID] = nil // Just store the ID
+			}
 		}
 	}
 
@@ -309,12 +227,12 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 	if opts.All {
 		go func() {
 			defer close(out)
-			ids, err := FetchAllDashboardIDs()
+			dashboards, err := fetchAndFilterDashboards(nil, false)
 			if err != nil {
 				out <- DashboardTargetResult{Err: fmt.Errorf("failed to fetch all dashboards: %w", err)}
 				return
 			}
-			for _, id := range ids {
+			for id := range dashboards {
 				// Path will be computed in download function with actual title
 				out <- DashboardTargetResult{Target: DashboardTarget{ID: id, Path: ""}} // empty path means use pattern
 			}
@@ -359,7 +277,7 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 	if len(filterTags) > 0 {
 		go func() {
 			defer close(out)
-			dashboards, err := FetchDashboardsWithTagsFiltered(filterTags)
+			dashboards, err := fetchAndFilterDashboards(filterTags, true)
 			if err != nil {
 				out <- DashboardTargetResult{Err: fmt.Errorf("failed to fetch dashboards by tags: %w", err)}
 				return
