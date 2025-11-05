@@ -16,7 +16,11 @@ test: ## Runs go tests
 
 .PHONY: build
 build: ## Builds the go binary
-	@go build -o bin/dd-tf ./cmd/dd-tf/main.go
+	@go build \
+		-ldflags "-X github.com/AD7six/dd-tf/internal/commands/version.Version=$(shell git describe --tags --always --dirty 2>/dev/null || echo dev) \
+		          -X github.com/AD7six/dd-tf/internal/commands/version.Commit=$(shell git rev-parse --short HEAD 2>/dev/null || echo unknown) \
+		          -X github.com/AD7six/dd-tf/internal/commands/version.BuildDate=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)" \
+		-o bin/dd-tf ./cmd/dd-tf/main.go
 
 .PHONY: run
 run: ## Compile and run the dev cli
@@ -25,6 +29,10 @@ run: ## Compile and run the dev cli
 .PHONY: clean
 clean: ## Cleans the build artifacts
 	@rm -rf bin/
+
+.PHONY: release
+release: ## Interactive release tagging (creates semver git tag)
+	@./scripts/release.sh
 
 ###
 # These targets are intentionally not documented (single #) so they don't show
