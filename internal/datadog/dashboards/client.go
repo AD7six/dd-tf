@@ -39,7 +39,7 @@ type DashboardTarget struct {
 	// provided in the individual dashboard request; we need the individual
 	// dashboard data. If we've already requested this dashboard's individual
 	// data it is stored here to avoid re-requesting it.
-	CompleteData map[string]any
+	FullDashboardResponse map[string]any
 }
 
 // DashboardTargetResult wraps a DashboardTarget with a potential error from target generation.
@@ -67,7 +67,7 @@ func fetchAndFilterDashboards(filterTags []string, fullData bool) (map[string]ma
 	}
 
 	client := internalhttp.GetHTTPClient(settings)
-	url := fmt.Sprintf("https://%s/api/v1/dashboard", settings.APIDomain)
+	url := fmt.Sprintf("https://api.%s/api/v1/dashboard", settings.Site)
 
 	resp, err := client.Get(url)
 	if err != nil {
@@ -113,7 +113,7 @@ func fetchAndFilterDashboards(filterTags []string, fullData bool) (map[string]ma
 		}
 
 		// Fetch full dashboard to get tags (and potentially cache the data)
-		dashboardURL := fmt.Sprintf("https://%s/api/v1/dashboard/%s", settings.APIDomain, dashboard.ID)
+		dashboardURL := fmt.Sprintf("https://api.%s/api/v1/dashboard/%s", settings.Site, dashboard.ID)
 		dashResp, err := client.Get(dashboardURL)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to fetch dashboard %s: %v\n", dashboard.ID, err)
@@ -290,7 +290,7 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 			}
 			for id, data := range dashboards {
 				// Include cached data to avoid duplicate API call
-				out <- DashboardTargetResult{Target: DashboardTarget{ID: id, Path: "", CompleteData: data}}
+				out <- DashboardTargetResult{Target: DashboardTarget{ID: id, Path: "", FullDashboardResponse: data}}
 			}
 		}()
 		return out, nil
@@ -301,7 +301,7 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 }
 
 // DownloadDashboardWithOptions fetches a dashboard and writes it to the specified path.
-// Uses cached data from target.CompleteData if available to avoid duplicate API calls.
+// Uses cached data from target.FullDashboardResponse if available to avoid duplicate API calls.
 // If target.Path is empty, computes the path using the configured pattern or outputPath override.
 func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) error {
 	normalizedId, err := normalizezDashboardID(target.ID)
@@ -319,12 +319,12 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 	var result map[string]any
 
 	// Use cached data if available (from tag filtering)
-	if target.CompleteData != nil {
-		result = target.CompleteData
+	if target.FullDashboardResponse != nil {
+		result = target.FullDashboardResponse
 	} else {
 		// Fetch from API
 		client := internalhttp.GetHTTPClient(settings)
-		url := fmt.Sprintf("https://%s/api/v1/dashboard/%s", settings.APIDomain, target.ID)
+		url := fmt.Sprintf("https://api.%s/api/v1/dashboard/%s", settings.Site, target.ID)
 
 		resp, err := client.Get(url)
 		if err != nil {
@@ -417,7 +417,7 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 	// Use outputPath override if provided, otherwise use setting
 	pattern := outputPath
 	if pattern == "" {
-		pattern = settings.DashboardsPathPattern
+		pattern = settings.DashboardsPathTemplate
 	}
 
 	// Translate simple placeholders like {id} to Go template variables before

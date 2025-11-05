@@ -13,13 +13,12 @@ import (
 
 // Settings contains configuration for the Datadog API client and dashboard management.
 type Settings struct {
-	APIKey                    string        // Required, Datadog API key
-	AppKey                    string        // Required, Datadog application key
-	APIDomain                 string        // Which datadog site (https://docs.datadoghq.com/getting_started/site/) the account is in, defaults to "api.datadoghq.com"
-	DashboardsDir             string        // Where dashboard JSON files are stored
-	DashboardsFilenamePattern string        // Path pattern for dashboard files, defaults to "{id}.json"
-	DashboardsPathPattern     string        // Path pattern for dashboard full path, defaults to "{DASHBOARDS_DIR}/{id}.json"
-	HTTPTimeout               time.Duration // HTTP client timeout, defaults to 60 seconds
+	APIKey                 string        // Required, Datadog API key
+	AppKey                 string        // Required, Datadog application key
+	Site                   string        // Datadog site (e.g., datadoghq.com). Used to build https://api.{Site}
+	DashboardsDir          string        // Where dashboard JSON files are stored
+	DashboardsPathTemplate string        // Path template for dashboard full path, defaults to "{DASHBOARDS_DIR}/{id}.json"
+	HTTPTimeout            time.Duration // HTTP client timeout, defaults to 60 seconds
 }
 
 // LoadSettings loads configuration from environment variables and optional .env file.
@@ -43,21 +42,22 @@ func LoadSettings() (*Settings, error) {
 		return nil, err
 	}
 
-	apiDomain := getEnv("DD_API_DOMAIN", "api.datadoghq.com")
+	// Determine site from DD_SITE (e.g., datadoghq.com).
+	site := getEnv("DD_SITE", "datadoghq.com")
+
 	dashboardsDir := getEnv("DASHBOARDS_DIR", "data/dashboards")
-	DashboardsFilenamePattern := getEnv("DASHBOARDS_FILENAME_PATTERN", "{id}.json")
-	DashboardsPathPattern := getEnv("DASHBOARDS_PATH_PATTERN", filepath.Join(dashboardsDir, DashboardsFilenamePattern))
+	dashboardsPathTemplate := getEnv("DASHBOARDS_PATH_TEMPLATE", filepath.Join(dashboardsDir, "{id}.json"))
 
 	// Parse HTTP timeout from environment (in seconds), default to 60
 	httpTimeout := time.Duration(getEnvInt("DD_HTTP_TIMEOUT", 60)) * time.Second
 
 	return &Settings{
-		APIKey:                apiKey,
-		AppKey:                appKey,
-		APIDomain:             apiDomain,
-		DashboardsDir:         dashboardsDir,
-		DashboardsPathPattern: DashboardsPathPattern,
-		HTTPTimeout:           httpTimeout,
+		APIKey:                 apiKey,
+		AppKey:                 appKey,
+		Site:                   site,
+		DashboardsDir:          dashboardsDir,
+		DashboardsPathTemplate: dashboardsPathTemplate,
+		HTTPTimeout:            httpTimeout,
 	}, nil
 }
 

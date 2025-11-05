@@ -341,9 +341,10 @@ func TestLoadSettings(t *testing.T) {
 	cleanup := func() {
 		os.Unsetenv("DD_API_KEY")
 		os.Unsetenv("DD_APP_KEY")
+		os.Unsetenv("DD_SITE")
 		os.Unsetenv("DD_API_DOMAIN")
 		os.Unsetenv("DASHBOARDS_DIR")
-		os.Unsetenv("DASHBOARDS_FILENAME_PATTERN")
+		os.Unsetenv("DASHBOARDS_PATH_TEMPLATE")
 		os.Unsetenv("DASHBOARDS_PATH_PATTERN")
 		os.Unsetenv("DD_HTTP_TIMEOUT")
 	}
@@ -381,12 +382,12 @@ func TestLoadSettings(t *testing.T) {
 		}
 
 		want := &Settings{
-			APIKey:                "test_api_key",
-			AppKey:                "test_app_key",
-			APIDomain:             "api.datadoghq.com",
-			DashboardsDir:         "data/dashboards",
-			DashboardsPathPattern: "data/dashboards/{id}.json",
-			HTTPTimeout:           60 * time.Second,
+			APIKey:                 "test_api_key",
+			AppKey:                 "test_app_key",
+			Site:                   "datadoghq.com",
+			DashboardsDir:          "data/dashboards",
+			DashboardsPathTemplate: "data/dashboards/{id}.json",
+			HTTPTimeout:            60 * time.Second,
 		}
 
 		if !reflect.DeepEqual(got, want) {

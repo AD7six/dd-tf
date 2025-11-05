@@ -10,8 +10,8 @@ import (
 
 func TestComputeDashboardPath_MissingFields(t *testing.T) {
 	settings := &config.Settings{
-		DashboardsDir:         "/test/dashboards",
-		DashboardsPathPattern: "{DASHBOARDS_DIR}/{id}-{title}.json",
+		DashboardsDir:          "/test/dashboards",
+		DashboardsPathTemplate: "{DASHBOARDS_DIR}/{id}-{title}.json",
 	}
 
 	t.Run("missing id field", func(t *testing.T) {
@@ -135,8 +135,8 @@ func TestComputeDashboardPath_MissingFields(t *testing.T) {
 
 func TestComputeDashboardPath_WithTags(t *testing.T) {
 	settings := &config.Settings{
-		DashboardsDir:         "/test/dashboards",
-		DashboardsPathPattern: "{DASHBOARDS_DIR}/{team}/{title}-{id}.json",
+		DashboardsDir:          "/test/dashboards",
+		DashboardsPathTemplate: "{DASHBOARDS_DIR}/{team}/{title}-{id}.json",
 	}
 
 	t.Run("with valid tags", func(t *testing.T) {
@@ -174,8 +174,8 @@ func TestComputeDashboardPath_WithTags(t *testing.T) {
 
 func TestComputeDashboardPath_WithOutputOverride(t *testing.T) {
 	settings := &config.Settings{
-		DashboardsDir:         "/test/dashboards",
-		DashboardsPathPattern: "{DASHBOARDS_DIR}/{id}.json", // Default pattern
+		DashboardsDir:          "/test/dashboards",
+		DashboardsPathTemplate: "{DASHBOARDS_DIR}/{id}.json", // Default pattern
 	}
 
 	dashboard := map[string]any{
