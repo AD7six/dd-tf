@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/AD7six/dd-tf/internal/commands/dashboards"
+	"github.com/AD7six/dd-tf/internal/commands/version"
 	"github.com/spf13/cobra"
 )
 
@@ -12,6 +13,7 @@ func main() {
 	}
 
 	root.AddCommand(dashboards.NewDashboardsCmd())
+	root.AddCommand(version.NewVersionCmd())
 
 	cobra.CheckErr(root.Execute())
 }
