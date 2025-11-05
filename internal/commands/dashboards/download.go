@@ -9,20 +9,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	allFlag     bool
-	updateFlag  bool
-	outputPath  string
-	team        string
-	tags        string
-	dashboardID string
-)
-
 func NewDownloadCmd() *cobra.Command {
+	var (
+		allFlag     bool
+		updateFlag  bool
+		outputPath  string
+		team        string
+		tags        string
+		dashboardID string
+	)
+
 	cmd := &cobra.Command{
 		Use:   "download",
 		Short: "Download Datadog dashboards by ID, team, tags, or all",
-		Run:   runDownload,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDownload(allFlag, updateFlag, outputPath, team, tags, dashboardID)
+		},
 	}
 
 	cmd.Flags().BoolVar(&allFlag, "all", false, "Download all dashboards")
@@ -35,7 +37,7 @@ func NewDownloadCmd() *cobra.Command {
 	return cmd
 }
 
-func runDownload(cmd *cobra.Command, args []string) {
+func runDownload(allFlag, updateFlag bool, outputPath, team, tags, dashboardID string) error {
 	opts := dashboards.DownloadOptions{
 		All:         allFlag,
 		Update:      updateFlag,
@@ -47,8 +49,7 @@ func runDownload(cmd *cobra.Command, args []string) {
 
 	targetsCh, err := dashboards.GenerateDashboardTargets(opts)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 
 	var wg sync.WaitGroup
@@ -76,6 +77,8 @@ func runDownload(cmd *cobra.Command, args []string) {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", e)
 	}
 	if hadErr {
-		os.Exit(1)
+		return fmt.Errorf("one or more dashboards failed to download")
 	}
+
+	return nil
 }
