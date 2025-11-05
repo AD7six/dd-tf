@@ -47,7 +47,7 @@ func ExtractIDsFromJSONFiles(dir string) (map[string]string, error) {
 			return nil
 		}
 
-		var content map[string]interface{}
+		var content map[string]any
 		if err := json.Unmarshal(data, &content); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v\n", path, err)
 			return nil

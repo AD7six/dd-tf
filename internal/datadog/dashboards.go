@@ -21,7 +21,7 @@ import (
 type dashboardTarget struct {
 	ID   string
 	Path string
-	Data map[string]interface{} // Optional: cached dashboard data to avoid duplicate API calls
+	Data map[string]any // Optional: cached dashboard data to avoid duplicate API calls
 }
 
 var (
