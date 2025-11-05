@@ -484,7 +484,7 @@ func TestWriteJSONFile(t *testing.T) {
 		// Try to write to a path that can't be created (parent is a file, not a directory)
 		tmpDir := t.TempDir()
 		parentFile := filepath.Join(tmpDir, "file.txt")
-		
+
 		// Create a regular file
 		if err := os.WriteFile(parentFile, []byte("content"), 0644); err != nil {
 			t.Fatalf("Failed to create parent file: %v", err)
@@ -492,11 +492,10 @@ func TestWriteJSONFile(t *testing.T) {
 
 		// Try to create a file "inside" the regular file (impossible)
 		invalidPath := filepath.Join(parentFile, "child.json")
-		
+
 		err := WriteJSONFile(invalidPath, map[string]any{"id": "test"})
 		if err == nil {
 			t.Error("WriteJSONFile() expected error for invalid path, got nil")
 		}
 	})
 }
-
