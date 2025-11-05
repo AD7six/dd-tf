@@ -204,3 +204,65 @@ func TestComputeDashboardPath_WithOutputOverride(t *testing.T) {
 		}
 	})
 }
+
+func TestNormalizezDashboardID(t *testing.T) {
+	tests := []struct {
+		name       string
+		id         string
+		normalized string
+		wantErr    bool
+	}{
+		{
+			name:    "valid dashboard ID",
+			id:      "abc-123-def",
+			wantErr: false,
+		},
+		{
+			name:       "valid dashboard ID, needs normalization",
+			id:         "ABC-123-DEF",
+			normalized: "abc-123-def",
+			wantErr:    false,
+		},
+		{
+			name:    "empty dashboard ID",
+			id:      "",
+			wantErr: true,
+		},
+		{
+			name:    "invalid format - missing dashes",
+			id:      "abcdefghi",
+			wantErr: true,
+		},
+		{
+			name:    "invalid format - too short",
+			id:      "abc-def",
+			wantErr: true,
+		},
+		{
+			name:    "invalid format - too long",
+			id:      "abc-def-ghi-jkl",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			normalized, err := normalizezDashboardID(tt.id)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("normalizezDashboardID(%q) error = %v, wantErr %v", tt.id, err, tt.wantErr)
+				return
+			}
+
+			// If we aren't expecting an error and there's no explicit
+			// normalized value - we expect the input back
+			if tt.normalized == "" && tt.wantErr == false {
+				tt.normalized = tt.id
+			}
+
+			if normalized != tt.normalized {
+				t.Errorf("normalizezDashboardID(%q) normalized = %q, want %q", tt.id, normalized, tt.normalized)
+			}
+		})
+	}
+}

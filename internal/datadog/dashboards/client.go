@@ -23,6 +23,8 @@ const (
 var (
 	// placeholderRegex matches placeholder patterns like {word} for template conversion
 	placeholderRegex = regexp.MustCompile(`\{([A-Za-z0-9_\-]+)\}`)
+	// dashboardIDRegex validates dashboard ID format (xxx-xxx-xxx)
+	dashboardIDRegex = regexp.MustCompile(`^(?i)[a-z0-9]+-[a-z0-9]+-[a-z0-9]+$`)
 )
 
 // DashboardTarget represents a dashboard ID and the path where it should be written.
@@ -259,6 +261,22 @@ func hasAllTags(dashboardTags, filterTags []string) bool {
 	return true
 }
 
+// normalizezDashboardID validates that the dashboard ID follows the expected
+// format (xxx-xxx-xxx). Handles case if that matters.
+func normalizezDashboardID(id string) (string, error) {
+	if id == "" {
+		return "", fmt.Errorf("dashboard ID cannot be empty")
+	}
+	if len(id) > 100 {
+		return "", fmt.Errorf("dashboard ID too long (max 100 characters)")
+	}
+	if !dashboardIDRegex.MatchString(id) {
+		return "", fmt.Errorf("invalid dashboard ID format: %s (expected format: xxx-xxx-xxx)", id)
+	}
+
+	return strings.ToLower(id), nil
+}
+
 // GenerateDashboardTargets returns a channel that yields dashboard IDs and target paths.
 // For --update mode, uses existing file paths. For other modes, computes paths from pattern.
 // Errors during target generation are returned as part of DashboardTargetResult.
@@ -310,8 +328,16 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 		go func() {
 			defer close(out)
 			for _, id := range ids {
-				// Path will be computed in download function with actual title
-				out <- DashboardTargetResult{Target: DashboardTarget{ID: id, Path: ""}} // empty path means use pattern
+				// Validate dashboard ID format
+				normalizedId, err := normalizezDashboardID(id)
+				if err != nil {
+					out <- DashboardTargetResult{Err: fmt.Errorf("invalid dashboard ID %q: %w", id, err)}
+					continue
+				}
+
+				// Empty path means use pattern. Path will be computed in
+				// download function with actual title
+				out <- DashboardTargetResult{Target: DashboardTarget{ID: normalizedId, Path: ""}}
 			}
 		}()
 		return out, nil
@@ -364,6 +390,13 @@ func DownloadDashboard(target DashboardTarget) error {
 // Uses cached data from target.CompleteData if available to avoid duplicate API calls.
 // If target.Path is empty, computes the path using the configured pattern or outputPath override.
 func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) error {
+	normalizedId, err := normalizezDashboardID(target.ID)
+	if err != nil {
+		return err
+	}
+
+	target.ID = normalizedId
+
 	settings, err := utils.LoadSettings()
 	if err != nil {
 		return err
