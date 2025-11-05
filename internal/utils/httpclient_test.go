@@ -437,7 +437,7 @@ func TestParseRetryAfter(t *testing.T) {
 
 func TestRateLimitedError(t *testing.T) {
 	err := &rateLimitedError{after: 5 * time.Second}
-	expected := "rate limited by server"
+	expected := "rate limited by server (retry after 5s)"
 
 	if err.Error() != expected {
 		t.Errorf("Error() = %q, want %q", err.Error(), expected)
