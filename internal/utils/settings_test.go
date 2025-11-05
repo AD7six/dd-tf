@@ -344,7 +344,6 @@ func TestLoadSettings(t *testing.T) {
 		os.Unsetenv("DASHBOARDS_DIR")
 		os.Unsetenv("DASHBOARDS_FILENAME_PATTERN")
 		os.Unsetenv("DASHBOARDS_PATH_PATTERN")
-		os.Unsetenv("DASHBOARDS_ADD_TITLE")
 	}
 	cleanup()
 	defer cleanup()
@@ -385,7 +384,6 @@ func TestLoadSettings(t *testing.T) {
 			APIDomain:             "api.datadoghq.com",
 			DashboardsDir:         "data/dashboards",
 			DashboardsPathPattern: "data/dashboards/{id}.json",
-			AddTitleToFileNames:   true,
 		}
 
 		if !reflect.DeepEqual(got, want) {

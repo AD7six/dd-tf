@@ -16,7 +16,6 @@ type Settings struct {
 	DashboardsDir             string // Where dashboard JSON files are stored
 	DashboardsFilenamePattern string // Path pattern for dashboard files, defaults to "{id}.json"
 	DashboardsPathPattern     string // Path pattern for dashboard full path, defaults to "{DASHBOARDS_DIR}/{id}.json"
-	AddTitleToFileNames       bool   // Whether to append dashboard title to output filename
 }
 
 func LoadSettings() (*Settings, error) {
@@ -41,7 +40,6 @@ func LoadSettings() (*Settings, error) {
 	dashboardsDir := getEnv("DASHBOARDS_DIR", "data/dashboards")
 	DashboardsFilenamePattern := getEnv("DASHBOARDS_FILENAME_PATTERN", "{id}.json")
 	DashboardsPathPattern := getEnv("DASHBOARDS_PATH_PATTERN", filepath.Join(dashboardsDir, DashboardsFilenamePattern))
-	addTitle := getEnvBool("DASHBOARDS_ADD_TITLE", true)
 
 	return &Settings{
 		APIKey:                apiKey,
@@ -49,7 +47,6 @@ func LoadSettings() (*Settings, error) {
 		APIDomain:             apiDomain,
 		DashboardsDir:         dashboardsDir,
 		DashboardsPathPattern: DashboardsPathPattern,
-		AddTitleToFileNames:   addTitle,
 	}, nil
 }
 
