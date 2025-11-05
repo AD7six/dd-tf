@@ -19,7 +19,12 @@ import (
 type DashboardTarget struct {
 	ID   string
 	Path string
-	Data map[string]any // Optional: cached dashboard data to avoid duplicate API calls
+
+	// The response to the dashboards endpoint does not include all data
+	// provided in the individual dashboard request; we need the individual
+	// dashboard data. If we've already requested this dashboard's individual
+	// data it is stored here to avoid re-requesting it.
+	CompleteData map[string]any
 }
 
 // DownloadOptions contains options for downloading dashboards.
@@ -37,9 +42,11 @@ func FetchAllDashboardIDs() ([]string, error) {
 	return fetchDashboardIDsByTags(nil)
 }
 
-// fetchDashboardIDsByTags queries the Datadog API to retrieve dashboard IDs, optionally filtered by tags.
-// If filterTags is nil or empty, returns all dashboards.
-// Note: The list endpoint doesn't return tags, so when filtering we must fetch each dashboard individually.
+// fetchDashboardIDsByTags queries the Datadog API to retrieve dashboard IDs,
+// optionally filtered by tags. If filterTags is nil or empty, returns all
+// dashboards.
+// Note: The index endpoint doesn't return tags, so when filtering by tags or
+// team we must (eugh) fetch each dashboard individually.
 func fetchDashboardIDsByTags(filterTags []string) ([]string, error) {
 	settings, err := utils.LoadSettings()
 	if err != nil {
@@ -83,7 +90,7 @@ func fetchDashboardIDsByTags(filterTags []string) ([]string, error) {
 	}
 
 	// When filtering by tags, we need to fetch each dashboard individually
-	// because the list endpoint doesn't include tags
+	// because the index endpoint doesn't include tags
 	ids := make([]string, 0)
 	for _, dashboard := range result.Dashboards {
 		if dashboard.ID == "" {
@@ -313,7 +320,7 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTarget, err
 			}
 			for id, data := range dashboards {
 				// Include cached data to avoid duplicate API call
-				out <- DashboardTarget{ID: id, Path: "", Data: data}
+				out <- DashboardTarget{ID: id, Path: "", CompleteData: data}
 			}
 		}()
 		return out, nil
@@ -324,14 +331,14 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTarget, err
 }
 
 // DownloadDashboard fetches a dashboard and writes it to the specified path.
-// Uses cached data from target.Data if available to avoid duplicate API calls.
+// Uses cached data from target.CompleteData if available to avoid duplicate API calls.
 // If target.Path is empty, computes the path using the configured pattern.
 func DownloadDashboard(target DashboardTarget) error {
 	return DownloadDashboardWithOptions(target, "")
 }
 
 // DownloadDashboardWithOptions fetches a dashboard and writes it to the specified path.
-// Uses cached data from target.Data if available to avoid duplicate API calls.
+// Uses cached data from target.CompleteData if available to avoid duplicate API calls.
 // If target.Path is empty, computes the path using the configured pattern or outputPath override.
 func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) error {
 	settings, err := utils.LoadSettings()
@@ -342,8 +349,8 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 	var result map[string]any
 
 	// Use cached data if available (from tag filtering)
-	if target.Data != nil {
-		result = target.Data
+	if target.CompleteData != nil {
+		result = target.CompleteData
 	} else {
 		// Fetch from API
 		client := utils.GetHTTPClient(settings.APIKey, settings.AppKey)
