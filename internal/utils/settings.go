@@ -10,9 +10,9 @@ import (
 )
 
 type Settings struct {
-	APIKey                    string
-	AppKey                    string
-	APIDomain                 string // e.g., "api.datadoghq.com" - depends on which datadog site (https://docs.datadoghq.com/getting_started/site/) the account is in
+	APIKey                    string // Required, Datadog API key
+	AppKey                    string // Required, Datadog application key
+	APIDomain                 string // Which datadog site (https://docs.datadoghq.com/getting_started/site/) the account is in, defaults to "api.datadoghq.com"
 	DashboardsDir             string // Where dashboard JSON files are stored
 	DashboardsFilenamePattern string // Path pattern for dashboard files, defaults to "{id}.json"
 	DashboardsPathPattern     string // Path pattern for dashboard full path, defaults to "{DASHBOARDS_DIR}/{id}.json"
@@ -79,5 +79,3 @@ func getEnvBool(key string, def bool) bool {
 		return def
 	}
 }
-
-// (int env helper removed as no longer used)
