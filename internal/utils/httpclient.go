@@ -198,4 +198,6 @@ type rateLimitedError struct {
 	after time.Duration
 }
 
-func (e *rateLimitedError) Error() string { return "rate limited by server" }
+func (e *rateLimitedError) Error() string {
+	return fmt.Sprintf("rate limited by server (retry after %v)", e.after)
+}
