@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -102,7 +104,9 @@ func (c *DatadogHTTPClient) Get(url string) (*http.Response, error) {
 			// Determine wait duration from Retry-After (seconds) or fall back to 1s
 			wait := parseRetryAfter(resp)
 			// Close body before sleeping/retrying
-			_ = resp.Body.Close()
+			if err := resp.Body.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: failed to close response body: %v\n", err)
+			}
 
 			// Set global pause
 			c.setPause(wait)
@@ -118,7 +122,9 @@ func (c *DatadogHTTPClient) Get(url string) (*http.Response, error) {
 		// Retry transient server errors (5xx). Do not retry other 4xx.
 		if resp.StatusCode >= 500 {
 			if attempt < c.retries {
-				_ = resp.Body.Close()
+				if err := resp.Body.Close(); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: failed to close response body: %v\n", err)
+				}
 				time.Sleep(backoffDuration(attempt))
 				continue
 			}
