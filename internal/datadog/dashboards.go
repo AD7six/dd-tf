@@ -414,23 +414,9 @@ func downloadDashboard(target dashboardTarget) error {
 		targetPath = computeDashboardPath(settings, result)
 	}
 
-	// Ensure directory exists
-	dir := filepath.Dir(targetPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
 	// Write JSON file
-	f, err := os.Create(targetPath)
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	defer f.Close()
-
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(result); err != nil {
-		return fmt.Errorf("failed to write JSON: %w", err)
+	if err := utils.WriteJSONFile(targetPath, result); err != nil {
+		return err
 	}
 
 	fmt.Printf("Dashboard saved to %s\n", targetPath)

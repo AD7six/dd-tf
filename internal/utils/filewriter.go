@@ -9,6 +9,31 @@ import (
 	"strings"
 )
 
+// WriteJSONFile writes data as JSON to the specified path with indentation.
+// Creates the parent directory if it doesn't exist.
+func WriteJSONFile(path string, data any) error {
+	// Ensure directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Write JSON file
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(data); err != nil {
+		return fmt.Errorf("failed to write JSON: %w", err)
+	}
+
+	return nil
+}
+
 // SanitizeFilename replaces non-alphanumeric characters with hyphens and trims.
 func SanitizeFilename(name string) string {
 	re := regexp.MustCompile(`[^a-zA-Z0-9]+`)
