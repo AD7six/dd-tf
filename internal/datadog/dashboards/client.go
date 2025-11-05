@@ -487,11 +487,26 @@ func ComputeDashboardPath(settings *utils.Settings, dashboard map[string]any, ou
 		}
 	}
 
+	// Extract ID - required field
+	id, ok := dashboard["id"].(string)
+	if !ok || id == "" {
+		// Fallback: use a placeholder if ID is missing
+		fmt.Fprintf(os.Stderr, "Warning: dashboard missing valid 'id' field, using placeholder\n")
+		id = "unknown-id"
+	}
+
+	// Extract title - use placeholder if missing
+	title, ok := dashboard["title"].(string)
+	if !ok || title == "" {
+		fmt.Fprintf(os.Stderr, "Warning: dashboard %s missing valid 'title' field, using placeholder\n", id)
+		title = "untitled"
+	}
+
 	// Build template data
 	data := dashboardTemplateData{
 		DashboardsDir: settings.DashboardsDir,
-		ID:            dashboard["id"].(string),
-		Title:         utils.SanitizeFilename(dashboard["title"].(string)),
+		ID:            id,
+		Title:         utils.SanitizeFilename(title),
 		Tags:          tagMap,
 	}
 
@@ -504,7 +519,7 @@ func ComputeDashboardPath(settings *utils.Settings, dashboard map[string]any, ou
 	if err != nil {
 		// If template parsing fails, fall back to literal pattern
 		fmt.Fprintf(os.Stderr, "Warning: failed to parse path template: %v\n", err)
-		return filepath.Join(settings.DashboardsDir, dashboard["id"].(string)+".json")
+		return filepath.Join(settings.DashboardsDir, id+".json")
 	}
 
 	// Execute template
@@ -512,7 +527,7 @@ func ComputeDashboardPath(settings *utils.Settings, dashboard map[string]any, ou
 	if err := tmpl.Execute(&buf, data); err != nil {
 		// If execution fails, fall back to literal pattern
 		fmt.Fprintf(os.Stderr, "Warning: failed to execute path template: %v\n", err)
-		return filepath.Join(settings.DashboardsDir, dashboard["id"].(string)+".json")
+		return filepath.Join(settings.DashboardsDir, id+".json")
 	}
 
 	return buf.String()
