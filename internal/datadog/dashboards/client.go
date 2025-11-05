@@ -71,7 +71,7 @@ func fetchDashboardIDsByTags(filterTags []string) ([]string, error) {
 		return nil, err
 	}
 
-	client := utils.GetHTTPClient(settings.APIKey, settings.AppKey)
+	client := utils.GetHTTPClient(settings)
 	url := fmt.Sprintf("https://%s/api/v1/dashboard", settings.APIDomain)
 
 	resp, err := client.Get(url)
@@ -160,7 +160,7 @@ func FetchDashboardsWithTagsFiltered(filterTags []string) (map[string]map[string
 		return nil, err
 	}
 
-	client := utils.GetHTTPClient(settings.APIKey, settings.AppKey)
+	client := utils.GetHTTPClient(settings)
 	url := fmt.Sprintf("https://%s/api/v1/dashboard", settings.APIDomain)
 
 	resp, err := client.Get(url)
@@ -409,7 +409,7 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 		result = target.CompleteData
 	} else {
 		// Fetch from API
-		client := utils.GetHTTPClient(settings.APIKey, settings.AppKey)
+		client := utils.GetHTTPClient(settings)
 		url := fmt.Sprintf("https://%s/api/v1/dashboard/%s", settings.APIDomain, target.ID)
 
 		resp, err := client.Get(url)

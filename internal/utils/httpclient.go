@@ -34,6 +34,7 @@ type DatadogHTTPClient struct {
 const (
 	defaultMaxConcurrency = 8
 	defaultRetries        = 3
+	defaultHTTPTimeout    = 60 * time.Second
 )
 
 var (
@@ -45,24 +46,27 @@ var (
 // are coordinated across all requests in this process. If we want in the future
 // to have multiple clients (for different api endpoints, with separate rate
 // limits) we can add that later.
-func GetHTTPClient(apiKey, appKey string) *DatadogHTTPClient {
+func GetHTTPClient(settings *Settings) *DatadogHTTPClient {
 	sharedOnce.Do(func() {
-		sharedClient = newClient(apiKey, appKey, defaultMaxConcurrency, defaultRetries)
+		sharedClient = newClient(settings.APIKey, settings.AppKey, defaultMaxConcurrency, defaultRetries, settings.HTTPTimeout)
 	})
 	return sharedClient
 }
 
-func newClient(apiKey, appKey string, maxConcurrent, retries int) *DatadogHTTPClient {
+func newClient(apiKey, appKey string, maxConcurrent, retries int, timeout time.Duration) *DatadogHTTPClient {
 	if maxConcurrent <= 0 {
 		maxConcurrent = defaultMaxConcurrency
 	}
 	if retries <= 0 {
 		retries = defaultRetries
 	}
+	if timeout <= 0 {
+		timeout = defaultHTTPTimeout
+	}
 	return &DatadogHTTPClient{
 		APIKey:         apiKey,
 		AppKey:         appKey,
-		UnderlyingHTTP: &http.Client{Timeout: 60 * time.Second},
+		UnderlyingHTTP: &http.Client{Timeout: timeout},
 		sem:            make(chan struct{}, maxConcurrent),
 		retries:        retries,
 	}

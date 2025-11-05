@@ -13,61 +13,69 @@ import (
 
 func TestNewClient(t *testing.T) {
 	t.Run("creates client with default values", func(t *testing.T) {
-		client := newClient("api-key", "app-key", defaultMaxConcurrency, defaultRetries)
+		client := newClient("test-key", "test-app", 0, 0, 0)
 
-		if client.APIKey != "api-key" {
-			t.Errorf("APIKey = %q, want %q", client.APIKey, "api-key")
+		if client.APIKey != "test-key" {
+			t.Errorf("APIKey = %s, want test-key", client.APIKey)
 		}
-		if client.AppKey != "app-key" {
-			t.Errorf("AppKey = %q, want %q", client.AppKey, "app-key")
+		if client.AppKey != "test-app" {
+			t.Errorf("AppKey = %s, want test-app", client.AppKey)
 		}
 		if cap(client.sem) != defaultMaxConcurrency {
-			t.Errorf("concurrency limit = %d, want %d", cap(client.sem), defaultMaxConcurrency)
+			t.Errorf("sem capacity = %d, want %d", cap(client.sem), defaultMaxConcurrency)
 		}
 		if client.retries != defaultRetries {
 			t.Errorf("retries = %d, want %d", client.retries, defaultRetries)
 		}
-		if client.UnderlyingHTTP == nil {
-			t.Error("UnderlyingHTTP is nil")
+		if client.UnderlyingHTTP.Timeout != defaultHTTPTimeout {
+			t.Errorf("timeout = %v, want %v", client.UnderlyingHTTP.Timeout, defaultHTTPTimeout)
 		}
 	})
 
 	t.Run("uses default values for invalid inputs", func(t *testing.T) {
-		client := newClient("key", "key", 0, -1)
+		client := newClient("key", "app", -1, -1, -1*time.Second)
 
 		if cap(client.sem) != defaultMaxConcurrency {
-			t.Errorf("concurrency limit = %d, want %d", cap(client.sem), defaultMaxConcurrency)
+			t.Errorf("sem capacity = %d, want %d", cap(client.sem), defaultMaxConcurrency)
 		}
 		if client.retries != defaultRetries {
 			t.Errorf("retries = %d, want %d", client.retries, defaultRetries)
 		}
+		if client.UnderlyingHTTP.Timeout != defaultHTTPTimeout {
+			t.Errorf("timeout = %v, want %v", client.UnderlyingHTTP.Timeout, defaultHTTPTimeout)
+		}
 	})
 
 	t.Run("accepts custom concurrency and retry values", func(t *testing.T) {
-		client := newClient("key", "key", 5, 2)
+		client := newClient("key", "app", 5, 10, 30*time.Second)
 
 		if cap(client.sem) != 5 {
-			t.Errorf("concurrency limit = %d, want 5", cap(client.sem))
+			t.Errorf("sem capacity = %d, want 5", cap(client.sem))
 		}
-		if client.retries != 2 {
-			t.Errorf("retries = %d, want 2", client.retries)
+		if client.retries != 10 {
+			t.Errorf("retries = %d, want 10", client.retries)
+		}
+		if client.UnderlyingHTTP.Timeout != 30*time.Second {
+			t.Errorf("timeout = %v, want 30s", client.UnderlyingHTTP.Timeout)
 		}
 	})
 }
 
 func TestGetHTTPClient(t *testing.T) {
-	// Note: GetHTTPClient uses a singleton, so we can't fully test isolation
-	// but we can verify it returns a client
-	client1 := GetHTTPClient("key1", "app1")
-	client2 := GetHTTPClient("key2", "app2")
+	// Reset shared client for testing
+	sharedOnce = sync.Once{}
 
-	if client1 == nil {
-		t.Error("GetHTTPClient returned nil")
+	settings := &Settings{
+		APIKey:      "test-api",
+		AppKey:      "test-app",
+		HTTPTimeout: 30 * time.Second,
 	}
 
-	// Should return the same instance (singleton)
+	client1 := GetHTTPClient(settings)
+	client2 := GetHTTPClient(settings)
+
 	if client1 != client2 {
-		t.Error("GetHTTPClient did not return singleton instance")
+		t.Error("GetHTTPClient() should return same instance")
 	}
 }
 
@@ -86,7 +94,7 @@ func TestDatadogHTTPClient_Get_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newClient("test-api-key", "test-app-key", 1, 3)
+	client := newClient("test-api-key", "test-app-key", 1, 3, 60*time.Second)
 	resp, err := client.Get(server.URL)
 
 	if err != nil {
@@ -122,7 +130,7 @@ func TestDatadogHTTPClient_Get_Retries429(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newClient("key", "key", 1, 3)
+	client := newClient("key", "key", 1, 3, 60*time.Second)
 	start := time.Now()
 	resp, err := client.Get(server.URL)
 
@@ -164,7 +172,7 @@ func TestDatadogHTTPClient_Get_Retries5xx(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newClient("key", "key", 1, 3)
+	client := newClient("key", "key", 1, 3, 60*time.Second)
 	resp, err := client.Get(server.URL)
 
 	if err != nil {
@@ -191,7 +199,7 @@ func TestDatadogHTTPClient_Get_DoesNotRetry4xx(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newClient("key", "key", 1, 3)
+	client := newClient("key", "key", 1, 3, 60*time.Second)
 	resp, err := client.Get(server.URL)
 
 	if err != nil {
@@ -219,7 +227,7 @@ func TestDatadogHTTPClient_Get_MaxRetriesExceeded(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newClient("key", "key", 1, 2) // Only 2 retries
+	client := newClient("key", "key", 1, 2, 60*time.Second) // Only 2 retries
 	resp, err := client.Get(server.URL)
 
 	if err == nil {
@@ -261,7 +269,7 @@ func TestDatadogHTTPClient_Get_ConcurrencyLimit(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newClient("key", "key", 3, 0) // Limit to 3 concurrent
+	client := newClient("key", "key", 3, 0, 60*time.Second) // Limit to 3 concurrent
 
 	// Launch 10 requests concurrently
 	var wg sync.WaitGroup
@@ -306,7 +314,7 @@ func TestDatadogHTTPClient_GlobalPause(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := newClient("key", "key", 5, 3)
+	client := newClient("key", "key", 5, 3, 60*time.Second)
 
 	// Launch multiple requests concurrently
 	var wg sync.WaitGroup
@@ -445,7 +453,7 @@ func TestRateLimitedError(t *testing.T) {
 }
 
 func TestDatadogHTTPClient_SetPause(t *testing.T) {
-	client := newClient("key", "key", 1, 0)
+	client := newClient("key", "key", 1, 0, 60*time.Second)
 
 	t.Run("sets pause duration", func(t *testing.T) {
 		client.setPause(2 * time.Second)
@@ -462,7 +470,7 @@ func TestDatadogHTTPClient_SetPause(t *testing.T) {
 	})
 
 	t.Run("uses default for zero duration", func(t *testing.T) {
-		client2 := newClient("key", "key", 1, 0)
+		client2 := newClient("key", "key", 1, 0, 60*time.Second)
 		client2.setPause(0)
 
 		client2.pause.Lock()
@@ -476,7 +484,7 @@ func TestDatadogHTTPClient_SetPause(t *testing.T) {
 	})
 
 	t.Run("keeps longer pause", func(t *testing.T) {
-		client3 := newClient("key", "key", 1, 0)
+		client3 := newClient("key", "key", 1, 0, 60*time.Second)
 
 		// Set a 3 second pause
 		client3.setPause(3 * time.Second)
@@ -499,7 +507,7 @@ func TestDatadogHTTPClient_SetPause(t *testing.T) {
 }
 
 func TestDatadogHTTPClient_WaitIfPaused(t *testing.T) {
-	client := newClient("key", "key", 1, 0)
+	client := newClient("key", "key", 1, 0, 60*time.Second)
 
 	t.Run("returns immediately when not paused", func(t *testing.T) {
 		start := time.Now()

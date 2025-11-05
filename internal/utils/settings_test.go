@@ -4,6 +4,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestGetEnv(t *testing.T) {
@@ -344,6 +345,7 @@ func TestLoadSettings(t *testing.T) {
 		os.Unsetenv("DASHBOARDS_DIR")
 		os.Unsetenv("DASHBOARDS_FILENAME_PATTERN")
 		os.Unsetenv("DASHBOARDS_PATH_PATTERN")
+		os.Unsetenv("DD_HTTP_TIMEOUT")
 	}
 	cleanup()
 	defer cleanup()
@@ -384,10 +386,59 @@ func TestLoadSettings(t *testing.T) {
 			APIDomain:             "api.datadoghq.com",
 			DashboardsDir:         "data/dashboards",
 			DashboardsPathPattern: "data/dashboards/{id}.json",
+			HTTPTimeout:           60 * time.Second,
 		}
 
 		if !reflect.DeepEqual(got, want) {
 			t.Errorf("LoadSettings() = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("parses custom HTTP timeout", func(t *testing.T) {
+		os.Setenv("DD_API_KEY", "test_api_key")
+		os.Setenv("DD_APP_KEY", "test_app_key")
+		os.Setenv("DD_HTTP_TIMEOUT", "30")
+		defer cleanup()
+
+		got, err := LoadSettings()
+		if err != nil {
+			t.Fatalf("LoadSettings() unexpected error: %v", err)
+		}
+
+		if got.HTTPTimeout != 30*time.Second {
+			t.Errorf("LoadSettings().HTTPTimeout = %v, want 30s", got.HTTPTimeout)
+		}
+	})
+
+	t.Run("uses default timeout for invalid DD_HTTP_TIMEOUT", func(t *testing.T) {
+		os.Setenv("DD_API_KEY", "test_api_key")
+		os.Setenv("DD_APP_KEY", "test_app_key")
+		os.Setenv("DD_HTTP_TIMEOUT", "invalid")
+		defer cleanup()
+
+		got, err := LoadSettings()
+		if err != nil {
+			t.Fatalf("LoadSettings() unexpected error: %v", err)
+		}
+
+		if got.HTTPTimeout != 60*time.Second {
+			t.Errorf("LoadSettings().HTTPTimeout = %v, want 60s (default)", got.HTTPTimeout)
+		}
+	})
+
+	t.Run("accepts zero HTTP timeout", func(t *testing.T) {
+		os.Setenv("DD_API_KEY", "test_api_key")
+		os.Setenv("DD_APP_KEY", "test_app_key")
+		os.Setenv("DD_HTTP_TIMEOUT", "0")
+		defer cleanup()
+
+		got, err := LoadSettings()
+		if err != nil {
+			t.Fatalf("LoadSettings() unexpected error: %v", err)
+		}
+
+		if got.HTTPTimeout != 0 {
+			t.Errorf("LoadSettings().HTTPTimeout = %v, want 0s", got.HTTPTimeout)
 		}
 	})
 }

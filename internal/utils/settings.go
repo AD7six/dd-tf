@@ -4,19 +4,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 // Settings contains configuration for the Datadog API client and dashboard management.
 type Settings struct {
-	APIKey                    string // Required, Datadog API key
-	AppKey                    string // Required, Datadog application key
-	APIDomain                 string // Which datadog site (https://docs.datadoghq.com/getting_started/site/) the account is in, defaults to "api.datadoghq.com"
-	DashboardsDir             string // Where dashboard JSON files are stored
-	DashboardsFilenamePattern string // Path pattern for dashboard files, defaults to "{id}.json"
-	DashboardsPathPattern     string // Path pattern for dashboard full path, defaults to "{DASHBOARDS_DIR}/{id}.json"
+	APIKey                    string        // Required, Datadog API key
+	AppKey                    string        // Required, Datadog application key
+	APIDomain                 string        // Which datadog site (https://docs.datadoghq.com/getting_started/site/) the account is in, defaults to "api.datadoghq.com"
+	DashboardsDir             string        // Where dashboard JSON files are stored
+	DashboardsFilenamePattern string        // Path pattern for dashboard files, defaults to "{id}.json"
+	DashboardsPathPattern     string        // Path pattern for dashboard full path, defaults to "{DASHBOARDS_DIR}/{id}.json"
+	HTTPTimeout               time.Duration // HTTP client timeout, defaults to 60 seconds
 }
 
 // LoadSettings loads configuration from environment variables and optional .env file.
@@ -45,12 +48,16 @@ func LoadSettings() (*Settings, error) {
 	DashboardsFilenamePattern := getEnv("DASHBOARDS_FILENAME_PATTERN", "{id}.json")
 	DashboardsPathPattern := getEnv("DASHBOARDS_PATH_PATTERN", filepath.Join(dashboardsDir, DashboardsFilenamePattern))
 
+	// Parse HTTP timeout from environment (in seconds), default to 60
+	httpTimeout := time.Duration(getEnvInt("DD_HTTP_TIMEOUT", 60)) * time.Second
+
 	return &Settings{
 		APIKey:                apiKey,
 		AppKey:                appKey,
 		APIDomain:             apiDomain,
 		DashboardsDir:         dashboardsDir,
 		DashboardsPathPattern: DashboardsPathPattern,
+		HTTPTimeout:           httpTimeout,
 	}, nil
 }
 
@@ -84,4 +91,16 @@ func getEnvBool(key string, def bool) bool {
 	default:
 		return def
 	}
+}
+
+// getEnvInt returns an integer env var, defaulting when unset/empty or invalid.
+func getEnvInt(key string, def int) int {
+	v, ok := os.LookupEnv(key)
+	if !ok || v == "" {
+		return def
+	}
+	if i, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+		return i
+	}
+	return def
 }
