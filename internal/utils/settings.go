@@ -20,8 +20,13 @@ type Settings struct {
 }
 
 func LoadSettings() (*Settings, error) {
-	// Try to load .env file if present
-	_ = godotenv.Load()
+	// If .env exists, try to load it
+	if _, err := os.Stat(".env"); err == nil {
+		err := godotenv.Load()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: error loading .env file: %v\n", err)
+		}
+	}
 
 	apiKey, err := getEnvRequired("DD_API_KEY")
 	if err != nil {
