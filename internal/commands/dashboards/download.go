@@ -9,6 +9,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// errorChannelBuffer defines the buffer size for the error channel.
+	// This matches the default HTTP client concurrency limit to prevent blocking.
+	errorChannelBuffer = 8
+)
+
 func NewDownloadCmd() *cobra.Command {
 	var (
 		allFlag     bool
@@ -53,7 +59,7 @@ func runDownload(allFlag, updateFlag bool, outputPath, team, tags, dashboardID s
 	}
 
 	var wg sync.WaitGroup
-	errCh := make(chan error, 8)
+	errCh := make(chan error, errorChannelBuffer)
 
 	for result := range targetsCh {
 		// Check if target generation failed
