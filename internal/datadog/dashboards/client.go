@@ -15,6 +15,11 @@ import (
 	"github.com/AD7six/dd-tf/internal/utils"
 )
 
+const (
+	// maxResponseBodySize is the maximum size allowed for API response bodies to prevent DoS
+	maxResponseBodySize = 10 * 1024 * 1024 // 10MB
+)
+
 // DashboardTarget represents a dashboard ID and the path where it should be written.
 type DashboardTarget struct {
 	ID   string
@@ -69,7 +74,10 @@ func fetchDashboardIDsByTags(filterTags []string) ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
+		if err != nil {
+			return nil, fmt.Errorf("API error %s (failed to read response body: %w)", resp.Status, err)
+		}
 		return nil, fmt.Errorf("API error: %s\n%s", resp.Status, string(body))
 	}
 
@@ -155,7 +163,10 @@ func FetchDashboardsWithTagsFiltered(filterTags []string) (map[string]map[string
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
+		if err != nil {
+			return nil, fmt.Errorf("API error %s (failed to read response body: %w)", resp.Status, err)
+		}
 		return nil, fmt.Errorf("API error: %s\n%s", resp.Status, string(body))
 	}
 
@@ -370,7 +381,10 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
+			body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
+			if err != nil {
+				return fmt.Errorf("API error %s (failed to read response body: %w)", resp.Status, err)
+			}
 			return fmt.Errorf("API error: %s\n%s", resp.Status, string(body))
 		}
 
