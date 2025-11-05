@@ -182,13 +182,13 @@ simpler code.
 ## Repository layout
 
 * `cmd/dd-tf/` – CLI entrypoint
-* `internal/commands/dashboards/` – dashboard download command implementation
+* `internal/commands/` – individual commands and subcommands
 * `internal/config/` – settings and environment configuration
-* `internal/datadog/dashboards/` – dashboard business logic, path templating, API interaction
+* `internal/datadog/` – Datadog specific (API) logic
 * `internal/http/` – HTTP client with retry logic and rate limiting
 * `internal/storage/` – file I/O and JSON writing
 * `internal/utils/` – generic string utilities
-* `data/dashboards/` – example/scratch output directory for JSON files
+* `data/` – default output directory for JSON files
 
 ## Roadmap
 
