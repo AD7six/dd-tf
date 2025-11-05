@@ -1,4 +1,4 @@
-package utils
+package http
 
 import (
 	"io"
@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/AD7six/dd-tf/internal/config"
 )
 
 func TestNewClient(t *testing.T) {
@@ -65,7 +67,7 @@ func TestGetHTTPClient(t *testing.T) {
 	// Reset shared client for testing
 	sharedOnce = sync.Once{}
 
-	settings := &Settings{
+	settings := &config.Settings{
 		APIKey:      "test-api",
 		AppKey:      "test-app",
 		HTTPTimeout: 30 * time.Second,

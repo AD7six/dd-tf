@@ -12,6 +12,9 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/AD7six/dd-tf/internal/config"
+	internalhttp "github.com/AD7six/dd-tf/internal/http"
+	"github.com/AD7six/dd-tf/internal/storage"
 	"github.com/AD7six/dd-tf/internal/utils"
 )
 
@@ -58,12 +61,12 @@ type DownloadOptions struct {
 // fetchAndFilterDashboards fetches dashboards from the Datadog API, optionally filtered by tags.
 // If fullData is true, returns complete dashboard data; if false, returns minimal data (just IDs).
 func fetchAndFilterDashboards(filterTags []string, fullData bool) (map[string]map[string]any, error) {
-	settings, err := utils.LoadSettings()
+	settings, err := config.LoadSettings()
 	if err != nil {
 		return nil, err
 	}
 
-	client := utils.GetHTTPClient(settings)
+	client := internalhttp.GetHTTPClient(settings)
 	url := fmt.Sprintf("https://%s/api/v1/dashboard", settings.APIDomain)
 
 	resp, err := client.Get(url)
@@ -201,7 +204,7 @@ func normalizezDashboardID(id string) (string, error) {
 func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResult, error) {
 	out := make(chan DashboardTargetResult)
 
-	settings, err := utils.LoadSettings()
+	settings, err := config.LoadSettings()
 	if err != nil {
 		close(out)
 		return nil, err
@@ -211,7 +214,7 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 	if opts.Update {
 		go func() {
 			defer close(out)
-			idToPath, err := utils.ExtractIDsFromJSONFiles(settings.DashboardsDir)
+			idToPath, err := storage.ExtractIDsFromJSONFiles(settings.DashboardsDir)
 			if err != nil {
 				out <- DashboardTargetResult{Err: fmt.Errorf("failed to scan directory: %w", err)}
 				return
@@ -308,7 +311,7 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 
 	target.ID = normalizedId
 
-	settings, err := utils.LoadSettings()
+	settings, err := config.LoadSettings()
 	if err != nil {
 		return err
 	}
@@ -320,7 +323,7 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 		result = target.CompleteData
 	} else {
 		// Fetch from API
-		client := utils.GetHTTPClient(settings)
+		client := internalhttp.GetHTTPClient(settings)
 		url := fmt.Sprintf("https://%s/api/v1/dashboard/%s", settings.APIDomain, target.ID)
 
 		resp, err := client.Get(url)
@@ -349,7 +352,7 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 	}
 
 	// Write JSON file
-	if err := utils.WriteJSONFile(targetPath, result); err != nil {
+	if err := storage.WriteJSONFile(targetPath, result); err != nil {
 		return err
 	}
 
@@ -410,7 +413,7 @@ func translateToTemplate(p string) string {
 //	{{.Title}} - sanitized dashboard title
 //	{{.Tags.team}} - value of "team" tag (empty if not found)
 //	{{.Tags.x}} - value of "x" tag (empty if not found)
-func ComputeDashboardPath(settings *utils.Settings, dashboard map[string]any, outputPath string) string {
+func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, outputPath string) string {
 	// Use outputPath override if provided, otherwise use setting
 	pattern := outputPath
 	if pattern == "" {
@@ -433,7 +436,7 @@ func ComputeDashboardPath(settings *utils.Settings, dashboard map[string]any, ou
 					if len(parts) == 2 {
 						key := strings.TrimSpace(parts[0])
 						value := strings.TrimSpace(parts[1])
-						tagMap[key] = utils.SanitizeFilename(value)
+						tagMap[key] = storage.SanitizeFilename(value)
 					}
 				}
 			}
@@ -459,7 +462,7 @@ func ComputeDashboardPath(settings *utils.Settings, dashboard map[string]any, ou
 	data := dashboardTemplateData{
 		DashboardsDir: settings.DashboardsDir,
 		ID:            id,
-		Title:         utils.SanitizeFilename(title),
+		Title:         storage.SanitizeFilename(title),
 		Tags:          tagMap,
 	}
 

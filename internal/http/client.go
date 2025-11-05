@@ -1,4 +1,4 @@
-package utils
+package http
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/AD7six/dd-tf/internal/config"
 )
 
 // DatadogHTTPClient wraps an HTTP client with Datadog API credentials, a concurrency limiter,
@@ -46,7 +48,7 @@ var (
 // are coordinated across all requests in this process. If we want in the future
 // to have multiple clients (for different api endpoints, with separate rate
 // limits) we can add that later.
-func GetHTTPClient(settings *Settings) *DatadogHTTPClient {
+func GetHTTPClient(settings *config.Settings) *DatadogHTTPClient {
 	sharedOnce.Do(func() {
 		sharedClient = newClient(settings.APIKey, settings.AppKey, defaultMaxConcurrency, defaultRetries, settings.HTTPTimeout)
 	})

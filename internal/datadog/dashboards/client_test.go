@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/AD7six/dd-tf/internal/utils"
+	"github.com/AD7six/dd-tf/internal/config"
 )
 
 func TestComputeDashboardPath_MissingFields(t *testing.T) {
-	settings := &utils.Settings{
+	settings := &config.Settings{
 		DashboardsDir:         "/test/dashboards",
 		DashboardsPathPattern: "{DASHBOARDS_DIR}/{id}-{title}.json",
 	}
@@ -134,7 +134,7 @@ func TestComputeDashboardPath_MissingFields(t *testing.T) {
 }
 
 func TestComputeDashboardPath_WithTags(t *testing.T) {
-	settings := &utils.Settings{
+	settings := &config.Settings{
 		DashboardsDir:         "/test/dashboards",
 		DashboardsPathPattern: "{DASHBOARDS_DIR}/{team}/{title}-{id}.json",
 	}
@@ -173,7 +173,7 @@ func TestComputeDashboardPath_WithTags(t *testing.T) {
 }
 
 func TestComputeDashboardPath_WithOutputOverride(t *testing.T) {
-	settings := &utils.Settings{
+	settings := &config.Settings{
 		DashboardsDir:         "/test/dashboards",
 		DashboardsPathPattern: "{DASHBOARDS_DIR}/{id}.json", // Default pattern
 	}
