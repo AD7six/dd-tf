@@ -20,6 +20,11 @@ const (
 	maxResponseBodySize = 10 * 1024 * 1024 // 10MB
 )
 
+var (
+	// placeholderRegex matches placeholder patterns like {word} for template conversion
+	placeholderRegex = regexp.MustCompile(`\{([A-Za-z0-9_\-]+)\}`)
+)
+
 // DashboardTarget represents a dashboard ID and the path where it should be written.
 type DashboardTarget struct {
 	ID   string
@@ -438,9 +443,8 @@ func translateToTemplate(p string) string {
 	}
 
 	// Then translate any remaining {word} into {{.Tags.word}}
-	re := regexp.MustCompile(`\{([A-Za-z0-9_\-]+)\}`)
-	p = re.ReplaceAllStringFunc(p, func(m string) string {
-		sub := re.FindStringSubmatch(m)
+	p = placeholderRegex.ReplaceAllStringFunc(p, func(m string) string {
+		sub := placeholderRegex.FindStringSubmatch(m)
 		if len(sub) != 2 {
 			return m
 		}
