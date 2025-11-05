@@ -9,6 +9,11 @@ import (
 	"strings"
 )
 
+var (
+	// nonAlphanumericRegex matches any non-alphanumeric characters for filename sanitization
+	nonAlphanumericRegex = regexp.MustCompile(`[^a-zA-Z0-9]+`)
+)
+
 // WriteJSONFile writes data as JSON to the specified path with indentation.
 // Creates the parent directory if it doesn't exist.
 func WriteJSONFile(path string, data any) error {
@@ -36,8 +41,7 @@ func WriteJSONFile(path string, data any) error {
 
 // SanitizeFilename replaces non-alphanumeric characters with hyphens and trims.
 func SanitizeFilename(name string) string {
-	re := regexp.MustCompile(`[^a-zA-Z0-9]+`)
-	return strings.Trim(re.ReplaceAllString(name, "-"), "-")
+	return strings.Trim(nonAlphanumericRegex.ReplaceAllString(name, "-"), "-")
 }
 
 // ExtractIDsFromJSONFiles scans a directory recursively for JSON files and extracts IDs from their content.
