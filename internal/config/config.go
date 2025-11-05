@@ -23,7 +23,7 @@ type Settings struct {
 
 // LoadSettings loads configuration from environment variables and optional .env file.
 // Required environment variables: DD_API_KEY, DD_APP_KEY.
-// Optional variables: DD_SITE, DASHBOARDS_DIR, DASHBOARDS_PATH_TEMPLATE.
+// Optional variables: DD_SITE, DASHBOARDS_DIR, DASHBOARDS_PATH_TEMPLATE, HTTP_TIMEOUT.
 func LoadSettings() (*Settings, error) {
 	// If .env exists, try to load it
 	if _, err := os.Stat(".env"); err == nil {
@@ -52,7 +52,7 @@ func LoadSettings() (*Settings, error) {
 	dashboardsPathTemplate := getEnv("DASHBOARDS_PATH_TEMPLATE", filepath.Join(dashboardsDir, "{id}.json"))
 
 	// Parse HTTP timeout from environment (in seconds), default to 60
-	httpTimeout := time.Duration(getEnvInt("DD_HTTP_TIMEOUT", 60)) * time.Second
+	httpTimeout := time.Duration(getEnvInt("HTTP_TIMEOUT", 60)) * time.Second
 
 	return &Settings{
 		APIKey:                 apiKey,

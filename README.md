@@ -58,7 +58,7 @@ Optional:
 * `DD_SITE` – Datadog [site parameter](https://docs.datadoghq.com/getting_started/site/) (default: `datadoghq.com`)
 * `DASHBOARDS_DIR` – base folder for dashboard files (default: `data/dashboards`)
 * `DASHBOARDS_PATH_TEMPLATE` – full path pattern (default: `{DASHBOARDS_DIR}/{id}.json`)
-* `DD_HTTP_TIMEOUT` – HTTP client timeout in seconds (default: `60`)
+* `HTTP_TIMEOUT` – HTTP client timeout in seconds (default: `60`)
 
 Create a `.env` file in your repo root:
 
@@ -68,7 +68,7 @@ DD_APP_KEY=your_app_key
 # DD_SITE=datadoghq.eu  # or us3.datadoghq.com, etc. (without 'api.' prefix)
 # DASHBOARDS_DIR=data/dashboards
 # DASHBOARDS_PATH_TEMPLATE={DASHBOARDS_DIR}/{team}/{title}-{id}.json
-# DD_HTTP_TIMEOUT=60
+# HTTP_TIMEOUT=60
 ```
 
 ### Path templating
@@ -175,7 +175,6 @@ simpler code.
 ## Troubleshooting
 
 * **401/403 from the API**: Check `DD_API_KEY`, `DD_APP_KEY`, and `DD_SITE`.
-  - Ensure `DD_SITE` is set without the `api.` prefix (e.g., `datadoghq.eu` not `api.datadoghq.eu`)
 * **DNS lookup errors like `api.api.datadoghq.*`**: Your `DD_SITE` includes `api.` prefix. Remove it.
 * **5xx from the API**: The API is having a bad day... struggle on or try again later.
 * **Files not where you expect**: Verify `DASHBOARDS_PATH_TEMPLATE` or your `--output` flag and remember titles/tags are sanitized.

@@ -344,7 +344,7 @@ func TestLoadSettings(t *testing.T) {
 		os.Unsetenv("DD_SITE")
 		os.Unsetenv("DASHBOARDS_DIR")
 		os.Unsetenv("DASHBOARDS_PATH_TEMPLATE")
-		os.Unsetenv("DD_HTTP_TIMEOUT")
+		os.Unsetenv("HTTP_TIMEOUT")
 	}
 	cleanup()
 	defer cleanup()
@@ -396,7 +396,7 @@ func TestLoadSettings(t *testing.T) {
 	t.Run("parses custom HTTP timeout", func(t *testing.T) {
 		os.Setenv("DD_API_KEY", "test_api_key")
 		os.Setenv("DD_APP_KEY", "test_app_key")
-		os.Setenv("DD_HTTP_TIMEOUT", "30")
+		os.Setenv("HTTP_TIMEOUT", "30")
 		defer cleanup()
 
 		got, err := LoadSettings()
@@ -409,10 +409,10 @@ func TestLoadSettings(t *testing.T) {
 		}
 	})
 
-	t.Run("uses default timeout for invalid DD_HTTP_TIMEOUT", func(t *testing.T) {
+	t.Run("uses default timeout for invalid HTTP_TIMEOUT", func(t *testing.T) {
 		os.Setenv("DD_API_KEY", "test_api_key")
 		os.Setenv("DD_APP_KEY", "test_app_key")
-		os.Setenv("DD_HTTP_TIMEOUT", "invalid")
+		os.Setenv("HTTP_TIMEOUT", "invalid")
 		defer cleanup()
 
 		got, err := LoadSettings()
@@ -428,7 +428,7 @@ func TestLoadSettings(t *testing.T) {
 	t.Run("accepts zero HTTP timeout", func(t *testing.T) {
 		os.Setenv("DD_API_KEY", "test_api_key")
 		os.Setenv("DD_APP_KEY", "test_app_key")
-		os.Setenv("DD_HTTP_TIMEOUT", "0")
+		os.Setenv("HTTP_TIMEOUT", "0")
 		defer cleanup()
 
 		got, err := LoadSettings()
