@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -67,11 +68,14 @@ func newClient(apiKey, appKey string, maxConcurrent, retries int) *DatadogHTTPCl
 	}
 }
 
-// Get performs a GET request with Datadog auth headers, honoring concurrency
-// limits and retrying 429s (after Retry-After) and other errors up to c.retries
-// times.  If a 429 is received, all subsequent requests will wait until the
-// Retry-After window passes.
+// Get performs a GET request with retry logic and context support.
+// Uses context.Background() for backward compatibility.
 func (c *DatadogHTTPClient) Get(url string) (*http.Response, error) {
+	return c.GetWithContext(context.Background(), url)
+}
+
+// GetWithContext performs a GET request with the provided context for cancellation/timeout.
+func (c *DatadogHTTPClient) GetWithContext(ctx context.Context, url string) (*http.Response, error) {
 	// Acquire concurrency slot
 	c.sem <- struct{}{}
 	defer func() { <-c.sem }()
@@ -82,7 +86,7 @@ func (c *DatadogHTTPClient) Get(url string) (*http.Response, error) {
 		// If globally paused due to 429, wait it out
 		c.waitIfPaused()
 
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			return nil, err
 		}
