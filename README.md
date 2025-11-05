@@ -1,5 +1,7 @@
 # dd-tf
 
+[![CI](https://github.com/AD7six/dd-tf/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/AD7six/dd-tf/actions/workflows/ci.yml)
+
 Datadog ⇄ Terraform helper CLI.
 
 Functionality useful for managing Datadog resources as JSON files.
