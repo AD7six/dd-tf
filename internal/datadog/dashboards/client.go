@@ -10,80 +10,30 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"sync"
 	"text/template"
 
 	"github.com/AD7six/dd-tf/internal/utils"
-	"github.com/spf13/cobra"
 )
 
-// dashboardTarget represents a dashboard ID and the path where it should be written.
-type dashboardTarget struct {
+// DashboardTarget represents a dashboard ID and the path where it should be written.
+type DashboardTarget struct {
 	ID   string
 	Path string
 	Data map[string]any // Optional: cached dashboard data to avoid duplicate API calls
 }
 
-var (
-	allFlag     bool
-	updateFlag  bool
-	outputPath  string
-	team        string
-	tags        string
-	dashboardID string
-)
-
-var DownloadCmd = &cobra.Command{
-	Use:   "download",
-	Short: "Download Datadog dashboards by ID, team, tags, or all",
-	Run: func(cmd *cobra.Command, args []string) {
-		targetsCh, err := generateDashboardTargets()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-
-		var wg sync.WaitGroup
-		errCh := make(chan error, 8)
-
-		for target := range targetsCh {
-			target := target // capture
-			fmt.Printf("Downloading dashboard with ID: %s\n", target.ID)
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				if err := downloadDashboard(target); err != nil {
-					errCh <- fmt.Errorf("%s: %w", target.ID, err)
-				}
-			}()
-		}
-
-		// wait and close error channel
-		go func() { wg.Wait(); close(errCh) }()
-
-		// collect errors
-		var hadErr bool
-		for e := range errCh {
-			hadErr = true
-			fmt.Fprintf(os.Stderr, "Error: %v\n", e)
-		}
-		if hadErr {
-			os.Exit(1)
-		}
-	},
+// DownloadOptions contains options for downloading dashboards.
+type DownloadOptions struct {
+	All         bool
+	Update      bool
+	OutputPath  string
+	Team        string
+	Tags        string
+	DashboardID string
 }
 
-func init() {
-	DownloadCmd.Flags().BoolVar(&allFlag, "all", false, "Download all dashboards")
-	DownloadCmd.Flags().BoolVar(&updateFlag, "update", false, "Update already-downloaded dashboards (scans existing files)")
-	DownloadCmd.Flags().StringVar(&outputPath, "output", "", "Output path template (supports {DASHBOARDS_DIR}, {id}, {title}, {team} and {any-tag}")
-	DownloadCmd.Flags().StringVar(&team, "team", "", "Team name (convenience for tag 'team:x')")
-	DownloadCmd.Flags().StringVar(&tags, "tags", "", "Comma-separated list of tags to filter dashboards")
-	DownloadCmd.Flags().StringVar(&dashboardID, "id", "", "Dashboard ID(s) to download (comma-separated)")
-}
-
-// fetchAllDashboardIDs queries the Datadog API to retrieve all dashboard IDs.
-func fetchAllDashboardIDs() ([]string, error) {
+// FetchAllDashboardIDs queries the Datadog API to retrieve all dashboard IDs.
+func FetchAllDashboardIDs() ([]string, error) {
 	return fetchDashboardIDsByTags(nil)
 }
 
@@ -174,9 +124,9 @@ func fetchDashboardIDsByTags(filterTags []string) ([]string, error) {
 	return ids, nil
 }
 
-// fetchDashboardsWithTagsFiltered fetches full dashboard data for dashboards matching the given tags.
+// FetchDashboardsWithTagsFiltered fetches full dashboard data for dashboards matching the given tags.
 // Returns a map of dashboard ID to dashboard data to avoid duplicate API calls.
-func fetchDashboardsWithTagsFiltered(filterTags []string) (map[string]map[string]interface{}, error) {
+func FetchDashboardsWithTagsFiltered(filterTags []string) (map[string]map[string]any, error) {
 	settings, err := utils.LoadSettings()
 	if err != nil {
 		return nil, err
@@ -208,7 +158,7 @@ func fetchDashboardsWithTagsFiltered(filterTags []string) (map[string]map[string
 	}
 
 	// Fetch each dashboard individually to check tags and cache the data
-	dashboards := make(map[string]map[string]interface{})
+	dashboards := make(map[string]map[string]any)
 	for _, dashboard := range result.Dashboards {
 		if dashboard.ID == "" {
 			continue
@@ -228,7 +178,7 @@ func fetchDashboardsWithTagsFiltered(filterTags []string) (map[string]map[string
 			continue
 		}
 
-		var dashData map[string]interface{}
+		var dashData map[string]any
 		if err := json.NewDecoder(dashResp.Body).Decode(&dashData); err != nil {
 			dashResp.Body.Close()
 			fmt.Fprintf(os.Stderr, "Warning: failed to decode dashboard %s: %v\n", dashboard.ID, err)
@@ -280,10 +230,10 @@ func hasAllTags(dashboardTags, filterTags []string) bool {
 	return true
 }
 
-// generateDashboardTargets returns a channel that yields dashboard IDs and target paths.
+// GenerateDashboardTargets returns a channel that yields dashboard IDs and target paths.
 // For --update mode, uses existing file paths. For other modes, computes paths from pattern.
-func generateDashboardTargets() (<-chan dashboardTarget, error) {
-	out := make(chan dashboardTarget)
+func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTarget, error) {
+	out := make(chan DashboardTarget)
 
 	settings, err := utils.LoadSettings()
 	if err != nil {
@@ -292,7 +242,7 @@ func generateDashboardTargets() (<-chan dashboardTarget, error) {
 	}
 
 	// --update: scan existing dashboard files and use their paths
-	if updateFlag {
+	if opts.Update {
 		go func() {
 			defer close(out)
 			idToPath, err := utils.ExtractIDsFromJSONFiles(settings.DashboardsDir)
@@ -301,37 +251,37 @@ func generateDashboardTargets() (<-chan dashboardTarget, error) {
 				return
 			}
 			for id, path := range idToPath {
-				out <- dashboardTarget{ID: id, Path: path}
+				out <- DashboardTarget{ID: id, Path: path}
 			}
 		}()
 		return out, nil
 	}
 
 	// --all: fetch all dashboard IDs from API
-	if allFlag {
+	if opts.All {
 		go func() {
 			defer close(out)
-			ids, err := fetchAllDashboardIDs()
+			ids, err := FetchAllDashboardIDs()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: failed to fetch all dashboards: %v\n", err)
 				return
 			}
 			for _, id := range ids {
 				// Path will be computed in download function with actual title
-				out <- dashboardTarget{ID: id, Path: ""} // empty path means use pattern
+				out <- DashboardTarget{ID: id, Path: ""} // empty path means use pattern
 			}
 		}()
 		return out, nil
 	}
 
 	// --id: download specific dashboards by ID
-	if dashboardID != "" {
-		ids := utils.ParseCommaSeparatedIDs(dashboardID)
+	if opts.DashboardID != "" {
+		ids := utils.ParseCommaSeparatedIDs(opts.DashboardID)
 		go func() {
 			defer close(out)
 			for _, id := range ids {
 				// Path will be computed in download function with actual title
-				out <- dashboardTarget{ID: id, Path: ""} // empty path means use pattern
+				out <- DashboardTarget{ID: id, Path: ""} // empty path means use pattern
 			}
 		}()
 		return out, nil
@@ -339,13 +289,13 @@ func generateDashboardTargets() (<-chan dashboardTarget, error) {
 
 	// Build filter tags from --team and --tags flags
 	var filterTags []string
-	if team != "" {
+	if opts.Team != "" {
 		// --team is a convenience flag that translates to team:x tag
-		filterTags = append(filterTags, fmt.Sprintf("team:%s", team))
+		filterTags = append(filterTags, fmt.Sprintf("team:%s", opts.Team))
 	}
-	if tags != "" {
+	if opts.Tags != "" {
 		// Parse comma-separated tags
-		parsedTags := utils.ParseCommaSeparatedIDs(tags) // Reuse the string splitting logic
+		parsedTags := utils.ParseCommaSeparatedIDs(opts.Tags) // Reuse the string splitting logic
 		filterTags = append(filterTags, parsedTags...)
 	}
 
@@ -353,7 +303,7 @@ func generateDashboardTargets() (<-chan dashboardTarget, error) {
 	if len(filterTags) > 0 {
 		go func() {
 			defer close(out)
-			dashboards, err := fetchDashboardsWithTagsFiltered(filterTags)
+			dashboards, err := FetchDashboardsWithTagsFiltered(filterTags)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: failed to fetch dashboards by tags: %v\n", err)
 				return
@@ -363,7 +313,7 @@ func generateDashboardTargets() (<-chan dashboardTarget, error) {
 			}
 			for id, data := range dashboards {
 				// Include cached data to avoid duplicate API call
-				out <- dashboardTarget{ID: id, Path: "", Data: data}
+				out <- DashboardTarget{ID: id, Path: "", Data: data}
 			}
 		}()
 		return out, nil
@@ -373,16 +323,23 @@ func generateDashboardTargets() (<-chan dashboardTarget, error) {
 	return nil, fmt.Errorf("please specify --id, --all, --team, --tags, or --update")
 }
 
-// downloadDashboard fetches a dashboard and writes it to the specified path.
+// DownloadDashboard fetches a dashboard and writes it to the specified path.
 // Uses cached data from target.Data if available to avoid duplicate API calls.
 // If target.Path is empty, computes the path using the configured pattern.
-func downloadDashboard(target dashboardTarget) error {
+func DownloadDashboard(target DashboardTarget) error {
+	return DownloadDashboardWithOptions(target, "")
+}
+
+// DownloadDashboardWithOptions fetches a dashboard and writes it to the specified path.
+// Uses cached data from target.Data if available to avoid duplicate API calls.
+// If target.Path is empty, computes the path using the configured pattern or outputPath override.
+func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) error {
 	settings, err := utils.LoadSettings()
 	if err != nil {
 		return err
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 
 	// Use cached data if available (from tag filtering)
 	if target.Data != nil {
@@ -411,7 +368,7 @@ func downloadDashboard(target dashboardTarget) error {
 	// Compute path if not provided (--update uses existing path)
 	targetPath := target.Path
 	if targetPath == "" {
-		targetPath = computeDashboardPath(settings, result)
+		targetPath = ComputeDashboardPath(settings, result, outputPath)
 	}
 
 	// Write JSON file
@@ -421,13 +378,6 @@ func downloadDashboard(target dashboardTarget) error {
 
 	fmt.Printf("Dashboard saved to %s\n", targetPath)
 	return nil
-}
-
-// downloadDashboardByID fetches a dashboard by ID from the Datadog API and writes to the specified path.
-// If targetPath is empty, computes the path using the configured pattern.
-// Deprecated: Use downloadDashboard with dashboardTarget instead.
-func downloadDashboardByID(id, targetPath string) error {
-	return downloadDashboard(dashboardTarget{ID: id, Path: targetPath, Data: nil})
 }
 
 // dashboardTemplateData holds the data available in path templates
@@ -492,7 +442,7 @@ func wrapTagReferencesWithDefaults(pattern string) string {
 	})
 }
 
-// computeDashboardPath computes the file path from the configured pattern or --output flag using Go templates.
+// ComputeDashboardPath computes the file path from the configured pattern or outputPath override using Go templates.
 // Template variables:
 //
 //	{{.DashboardsDir}} - the dashboards directory from settings
@@ -500,8 +450,8 @@ func wrapTagReferencesWithDefaults(pattern string) string {
 //	{{.Title}} - sanitized dashboard title
 //	{{.Tags.team}} - value of "team" tag (empty if not found)
 //	{{.Tags.x}} - value of "x" tag (empty if not found)
-func computeDashboardPath(settings *utils.Settings, dashboard map[string]interface{}) string {
-	// Use --output flag if provided, otherwise use setting
+func ComputeDashboardPath(settings *utils.Settings, dashboard map[string]any, outputPath string) string {
+	// Use outputPath override if provided, otherwise use setting
 	pattern := outputPath
 	if pattern == "" {
 		pattern = settings.DashboardsPathPattern
