@@ -55,18 +55,20 @@ Minimum required:
 
 Optional:
 
-* `DD_SITE` – Datadog [site paramter](https://docs.datadoghq.com/getting_started/site/) (default: `datadoghq.com`)
+* `DD_SITE` – Datadog [site parameter](https://docs.datadoghq.com/getting_started/site/) (default: `datadoghq.com`)
 * `DASHBOARDS_DIR` – base folder for dashboard files (default: `data/dashboards`)
 * `DASHBOARDS_PATH_TEMPLATE` – full path pattern (default: `{DASHBOARDS_DIR}/{id}.json`)
+* `DD_HTTP_TIMEOUT` – HTTP client timeout in seconds (default: `60`)
 
 Create a `.env` file in your repo root:
 
 ```dotenv
 DD_API_KEY=your_api_key
 DD_APP_KEY=your_app_key
-# DD_SITE=datadoghq.eu
+# DD_SITE=datadoghq.eu  # or us3.datadoghq.com, etc. (without 'api.' prefix)
 # DASHBOARDS_DIR=data/dashboards
 # DASHBOARDS_PATH_TEMPLATE={DASHBOARDS_DIR}/{team}/{title}-{id}.json
+# DD_HTTP_TIMEOUT=60
 ```
 
 ### Path templating
@@ -172,17 +174,21 @@ simpler code.
 
 ## Troubleshooting
 
-* 401/403 from the API: Check `DD_API_KEY`, `DD_APP_KEY`, and `DD_SITE`.
-* 5xx from the API: The API is having a bad day... struggle on or try again
-  later.
-* Files not where you expect: Verify `DASHBOARDS_PATH_TEMPLATE` or your
-  `--output` flag and remember titles/tags are sanitized.
+* **401/403 from the API**: Check `DD_API_KEY`, `DD_APP_KEY`, and `DD_SITE`.
+  - Ensure `DD_SITE` is set without the `api.` prefix (e.g., `datadoghq.eu` not `api.datadoghq.eu`)
+* **DNS lookup errors like `api.api.datadoghq.*`**: Your `DD_SITE` includes `api.` prefix. Remove it.
+* **5xx from the API**: The API is having a bad day... struggle on or try again later.
+* **Files not where you expect**: Verify `DASHBOARDS_PATH_TEMPLATE` or your `--output` flag and remember titles/tags are sanitized.
 
 ## Repository layout
 
 * `cmd/dd-tf/` – CLI entrypoint
-* `internal/datadog/` – dashboard download logic and path templating
-* `internal/utils/` – settings, HTTP client, helpers
+* `internal/commands/dashboards/` – dashboard download command implementation
+* `internal/config/` – settings and environment configuration
+* `internal/datadog/dashboards/` – dashboard business logic, path templating, API interaction
+* `internal/http/` – HTTP client with retry logic and rate limiting
+* `internal/storage/` – file I/O and JSON writing
+* `internal/utils/` – generic string utilities
 * `data/dashboards/` – example/scratch output directory for JSON files
 
 ## Roadmap
@@ -190,7 +196,6 @@ simpler code.
 * Add monitors resource handling ?
 * Additional resource types (tbd)
 * Optional helpers for Terraform generation (tbd)
-* HTTP request queue/concurrency limiter to cap parallel API calls
 
 ## License
 
