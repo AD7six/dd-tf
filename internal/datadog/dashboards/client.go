@@ -41,18 +41,18 @@ type DashboardTarget struct {
 
 // DashboardTargetResult wraps a DashboardTarget with a potential error from target generation.
 type DashboardTargetResult struct {
-	Target DashboardTarget
-	Err    error
+	Target DashboardTarget // The dashboard target containing ID and path information
+	Err    error           // Error encountered during target generation, if any
 }
 
 // DownloadOptions contains options for downloading dashboards.
 type DownloadOptions struct {
-	All         bool
-	Update      bool
-	OutputPath  string
-	Team        string
-	Tags        string
-	DashboardID string
+	All         bool   // Download all dashboards
+	Update      bool   // Update existing dashboards from local files
+	OutputPath  string // Custom output path pattern (overrides settings)
+	Team        string // Filter by team tag (convenience flag for team:x)
+	Tags        string // Comma-separated list of tags to filter by
+	DashboardID string // Comma-separated list of dashboard IDs to download
 }
 
 // FetchAllDashboardIDs queries the Datadog API to retrieve all dashboard IDs.

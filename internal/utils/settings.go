@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Settings contains configuration for the Datadog API client and dashboard management.
 type Settings struct {
 	APIKey                    string // Required, Datadog API key
 	AppKey                    string // Required, Datadog application key
@@ -18,6 +19,9 @@ type Settings struct {
 	DashboardsPathPattern     string // Path pattern for dashboard full path, defaults to "{DASHBOARDS_DIR}/{id}.json"
 }
 
+// LoadSettings loads configuration from environment variables and optional .env file.
+// Required environment variables: DD_API_KEY, DD_APP_KEY.
+// Optional variables: DD_API_DOMAIN, DASHBOARDS_DIR, DASHBOARDS_FILENAME_PATTERN, DASHBOARDS_PATH_PATTERN.
 func LoadSettings() (*Settings, error) {
 	// If .env exists, try to load it
 	if _, err := os.Stat(".env"); err == nil {

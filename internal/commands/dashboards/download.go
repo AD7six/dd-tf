@@ -15,6 +15,9 @@ const (
 	errorChannelBuffer = 8
 )
 
+// NewDownloadCmd creates a new cobra command for downloading Datadog dashboards.
+// It supports downloading dashboards by ID (--id), team (--team), tags (--tags),
+// all dashboards (--all), or updating existing dashboards (--update).
 func NewDownloadCmd() *cobra.Command {
 	var (
 		allFlag     bool
