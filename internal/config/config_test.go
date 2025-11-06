@@ -383,7 +383,6 @@ func TestLoadSettings(t *testing.T) {
 			APIKey:                 "test_api_key",
 			AppKey:                 "test_app_key",
 			Site:                   "datadoghq.com",
-			DataDir:                "data",
 			DashboardsPathTemplate: "data/dashboards/{id}.json",
 			MonitorsPathTemplate:   "data/monitors/{id}.json",
 			HTTPTimeout:            60 * time.Second,
