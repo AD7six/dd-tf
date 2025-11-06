@@ -47,22 +47,21 @@ func fetchAndFilterDashboards(filterTags []string, fullData bool) (map[string]ma
 	// Fetch all dashboard IDs with pagination
 	// Dashboards API uses 'start' and 'count' parameters for pagination
 	var allDashboardIDs []string
-	start := 0
-	count := settings.PageSize
+	pagination := resource.NewOffsetPagination(settings.PageSize)
 	for {
-		url := fmt.Sprintf("https://api.%s/api/v1/dashboard?start=%d&count=%d", settings.Site, start, count)
+		url := pagination.FormatOffsetURL(fmt.Sprintf("https://api.%s/api/v1/dashboard", settings.Site))
 		resp, err := client.Get(url)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch dashboards (start=%d): %w", start, err)
+			return nil, fmt.Errorf("failed to fetch dashboards (start=%d): %w", pagination.Start, err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
 			body, err := io.ReadAll(io.LimitReader(resp.Body, settings.HTTPMaxBodySize))
 			resp.Body.Close()
 			if err != nil {
-				return nil, fmt.Errorf("API error %s (start=%d) (failed to read response body: %w)", resp.Status, start, err)
+				return nil, fmt.Errorf("API error %s (start=%d) (failed to read response body: %w)", resp.Status, pagination.Start, err)
 			}
-			return nil, fmt.Errorf("API error (start=%d): %s\n%s", start, resp.Status, string(body))
+			return nil, fmt.Errorf("API error (start=%d): %s\n%s", pagination.Start, resp.Status, string(body))
 		}
 
 		// Parse response to get dashboard IDs
@@ -74,7 +73,7 @@ func fetchAndFilterDashboards(filterTags []string, fullData bool) (map[string]ma
 
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 			resp.Body.Close()
-			return nil, fmt.Errorf("failed to decode response (start=%d): %w", start, err)
+			return nil, fmt.Errorf("failed to decode response (start=%d): %w", pagination.Start, err)
 		}
 		resp.Body.Close()
 
@@ -88,11 +87,10 @@ func fetchAndFilterDashboards(filterTags []string, fullData bool) (map[string]ma
 			}
 		}
 
-		// If we got fewer results than requested count, this is the last page
-		if len(result.Dashboards) < count {
+		// Check if there might be more pages
+		if !pagination.NextOffsetPage(len(result.Dashboards)) {
 			break
 		}
-		start += len(result.Dashboards)
 	}
 
 	// If no filtering and we don't need full data, return early with just IDs

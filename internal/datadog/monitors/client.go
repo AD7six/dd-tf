@@ -90,25 +90,24 @@ func GenerateMonitorTargets(opts DownloadOptions) (<-chan MonitorTargetResult, e
 		// (including matching_downtimes which is not in the individual monitor endpoint)
 		// Use pagination to handle large numbers of monitors
 		var allMonitors []map[string]any
-		page := 0
-		pageSize := settings.PageSize
+		pagination := resource.NewPagePagination(settings.PageSize)
 		for {
-			url := fmt.Sprintf("https://api.%s/api/v1/monitor?page=%d&page_size=%d", settings.Site, page, pageSize)
+			url := pagination.FormatPageURL(fmt.Sprintf("https://api.%s/api/v1/monitor", settings.Site))
 			resp, err := client.Get(url)
 			if err != nil {
-				out <- MonitorTargetResult{Err: fmt.Errorf("failed to fetch monitors page %d: %w", page, err)}
+				out <- MonitorTargetResult{Err: fmt.Errorf("failed to fetch monitors page %d: %w", pagination.Page, err)}
 				return
 			}
 			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(io.LimitReader(resp.Body, settings.HTTPMaxBodySize))
 				resp.Body.Close()
-				out <- MonitorTargetResult{Err: fmt.Errorf("API error on page %d: %s\n%s", page, resp.Status, string(body))}
+				out <- MonitorTargetResult{Err: fmt.Errorf("API error on page %d: %s\n%s", pagination.Page, resp.Status, string(body))}
 				return
 			}
 			var monitorsList []map[string]any
 			if err := json.NewDecoder(resp.Body).Decode(&monitorsList); err != nil {
 				resp.Body.Close()
-				out <- MonitorTargetResult{Err: fmt.Errorf("failed to decode monitors page %d: %w", page, err)}
+				out <- MonitorTargetResult{Err: fmt.Errorf("failed to decode monitors page %d: %w", pagination.Page, err)}
 				return
 			}
 			resp.Body.Close()
@@ -118,11 +117,10 @@ func GenerateMonitorTargets(opts DownloadOptions) (<-chan MonitorTargetResult, e
 			}
 			allMonitors = append(allMonitors, monitorsList...)
 
-			// If we got fewer results than page size, this is the last page
-			if len(monitorsList) < pageSize {
+			// Check if there might be more pages
+			if !pagination.NextPage(len(monitorsList)) {
 				break
 			}
-			page++
 		}
 
 		for _, mon := range allMonitors {
