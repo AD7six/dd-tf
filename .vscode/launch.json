@@ -10,6 +10,7 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/dd-tf",
+            "cwd": "${workspaceFolder}",
             "args": [
                 "dashboards",
                 "download",
@@ -25,6 +26,7 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/dd-tf",
+            "cwd": "${workspaceFolder}",
             "args": [
                 "monitors",
                 "download",
@@ -40,6 +42,7 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/cmd/dd-tf",
+            "cwd": "${workspaceFolder}",
             "args": [
                 "version",
             ],
