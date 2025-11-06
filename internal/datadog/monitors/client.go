@@ -190,19 +190,9 @@ func DownloadMonitorWithOptions(target MonitorTarget, outputPath string) error {
 	} else {
 		client := internalhttp.GetHTTPClient(settings)
 		url := fmt.Sprintf("https://api.%s/api/v1/monitor/%d", settings.Site, target.ID)
-		resp, err := client.Get(url)
+		var err error
+		result, err = resource.FetchResourceFromAPI(client, url, settings)
 		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			body, err := io.ReadAll(io.LimitReader(resp.Body, settings.HTTPMaxBodySize))
-			if err != nil {
-				return fmt.Errorf("API error %s (failed to read response body: %w)", resp.Status, err)
-			}
-			return fmt.Errorf("API error: %s\n%s", resp.Status, string(body))
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 			return err
 		}
 	}
