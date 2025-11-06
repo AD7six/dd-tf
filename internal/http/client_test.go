@@ -13,6 +13,44 @@ import (
 	"github.com/AD7six/dd-tf/internal/config"
 )
 
+// fakeSleeper tracks sleep calls without actually sleeping.
+type fakeSleeper struct {
+	mu           sync.Mutex
+	sleeps       []time.Duration
+	totalSlept   time.Duration
+	sleepCount   int32
+	shouldActual bool // if true, actually sleep (for specific tests)
+}
+
+func (f *fakeSleeper) Sleep(d time.Duration) {
+	atomic.AddInt32(&f.sleepCount, 1)
+	f.mu.Lock()
+	f.sleeps = append(f.sleeps, d)
+	f.totalSlept += d
+	f.mu.Unlock()
+	if f.shouldActual {
+		time.Sleep(d)
+	}
+}
+
+func (f *fakeSleeper) getTotalSlept() time.Duration {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.totalSlept
+}
+
+func (f *fakeSleeper) getSleepCount() int {
+	return int(atomic.LoadInt32(&f.sleepCount))
+}
+
+func (f *fakeSleeper) getSleeps() []time.Duration {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	result := make([]time.Duration, len(f.sleeps))
+	copy(result, f.sleeps)
+	return result
+}
+
 func TestNewClient(t *testing.T) {
 	t.Run("creates client with default values", func(t *testing.T) {
 		client := newClient("test-key", "test-app", 0, 0, 0)
@@ -133,7 +171,9 @@ func TestDatadogHTTPClient_Get_Retries429(t *testing.T) {
 	defer server.Close()
 
 	client := newClient("key", "key", 1, 3, 60*time.Second)
-	start := time.Now()
+	fakeSleep := &fakeSleeper{}
+	client.sleeper = fakeSleep
+
 	resp, err := client.Get(server.URL)
 
 	if err != nil {
@@ -150,10 +190,15 @@ func TestDatadogHTTPClient_Get_Retries429(t *testing.T) {
 		t.Errorf("attemptCount = %d, want >= 3", attemptCount)
 	}
 
-	// Should have taken at least 2 seconds (2 retries with 1s Retry-After each)
-	elapsed := time.Since(start)
-	if elapsed < 2*time.Second {
-		t.Errorf("elapsed time = %v, expected >= 2s (due to Retry-After)", elapsed)
+	// Should have slept 2 times (2 retries with 1s Retry-After each)
+	sleepCount := fakeSleep.getSleepCount()
+	if sleepCount < 2 {
+		t.Errorf("sleep count = %d, want >= 2", sleepCount)
+	}
+
+	totalSlept := fakeSleep.getTotalSlept()
+	if totalSlept < 2*time.Second {
+		t.Errorf("total slept = %v, want >= 2s", totalSlept)
 	}
 }
 
@@ -175,6 +220,9 @@ func TestDatadogHTTPClient_Get_Retries5xx(t *testing.T) {
 	defer server.Close()
 
 	client := newClient("key", "key", 1, 3, 60*time.Second)
+	fakeSleep := &fakeSleeper{}
+	client.sleeper = fakeSleep
+
 	resp, err := client.Get(server.URL)
 
 	if err != nil {
@@ -188,6 +236,11 @@ func TestDatadogHTTPClient_Get_Retries5xx(t *testing.T) {
 
 	if attemptCount < 2 {
 		t.Errorf("attemptCount = %d, want >= 2", attemptCount)
+	}
+
+	// Should have slept for backoff
+	if fakeSleep.getSleepCount() == 0 {
+		t.Error("expected at least one sleep for retry backoff")
 	}
 }
 
@@ -230,6 +283,9 @@ func TestDatadogHTTPClient_Get_MaxRetriesExceeded(t *testing.T) {
 	defer server.Close()
 
 	client := newClient("key", "key", 1, 2, 60*time.Second) // Only 2 retries
+	fakeSleep := &fakeSleeper{}
+	client.sleeper = fakeSleep
+
 	resp, err := client.Get(server.URL)
 
 	if err == nil {
@@ -253,6 +309,8 @@ func TestDatadogHTTPClient_Get_ConcurrencyLimit(t *testing.T) {
 	var concurrentRequests int32
 	var maxConcurrent int32
 
+	fakeSleep := &fakeSleeper{shouldActual: true} // Need actual sleep for concurrency timing
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		current := atomic.AddInt32(&concurrentRequests, 1)
 		defer atomic.AddInt32(&concurrentRequests, -1)
@@ -266,12 +324,13 @@ func TestDatadogHTTPClient_Get_ConcurrencyLimit(t *testing.T) {
 		}
 
 		// Simulate slow request
-		time.Sleep(100 * time.Millisecond)
+		fakeSleep.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
 	client := newClient("key", "key", 3, 0, 60*time.Second) // Limit to 3 concurrent
+	client.sleeper = fakeSleep
 
 	// Launch 10 requests concurrently
 	var wg sync.WaitGroup
@@ -317,6 +376,8 @@ func TestDatadogHTTPClient_GlobalPause(t *testing.T) {
 	defer server.Close()
 
 	client := newClient("key", "key", 5, 3, 60*time.Second)
+	fakeSleep := &fakeSleeper{shouldActual: true} // Need actual sleep for timing checks
+	client.sleeper = fakeSleep
 
 	// Launch multiple requests concurrently
 	var wg sync.WaitGroup
@@ -495,7 +556,7 @@ func TestDatadogHTTPClient_SetPause(t *testing.T) {
 		client3.pause.Unlock()
 
 		// Try to set a shorter 1 second pause
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond) // Small actual sleep is acceptable here
 		client3.setPause(1 * time.Second)
 		client3.pause.Lock()
 		second := client3.pauseUntil
@@ -509,9 +570,11 @@ func TestDatadogHTTPClient_SetPause(t *testing.T) {
 }
 
 func TestDatadogHTTPClient_WaitIfPaused(t *testing.T) {
-	client := newClient("key", "key", 1, 0, 60*time.Second)
-
 	t.Run("returns immediately when not paused", func(t *testing.T) {
+		client := newClient("key", "key", 1, 0, 60*time.Second)
+		fakeSleep := &fakeSleeper{}
+		client.sleeper = fakeSleep
+
 		start := time.Now()
 		client.waitIfPaused()
 		elapsed := time.Since(start)
@@ -519,17 +582,31 @@ func TestDatadogHTTPClient_WaitIfPaused(t *testing.T) {
 		if elapsed > 50*time.Millisecond {
 			t.Errorf("waitIfPaused() took %v, expected immediate return", elapsed)
 		}
+
+		if fakeSleep.getSleepCount() > 0 {
+			t.Errorf("sleep count = %d, expected 0 (no pause)", fakeSleep.getSleepCount())
+		}
 	})
 
 	t.Run("waits until pause expires", func(t *testing.T) {
-		client.setPause(500 * time.Millisecond)
+		client := newClient("key", "key", 1, 0, 60*time.Second)
+		fakeSleep := &fakeSleeper{shouldActual: true} // Need to actually sleep for time-based checks
+		client.sleeper = fakeSleep
+
+		client.setPause(100 * time.Millisecond) // Use shorter duration
 
 		start := time.Now()
 		client.waitIfPaused()
 		elapsed := time.Since(start)
 
-		if elapsed < 450*time.Millisecond {
-			t.Errorf("waitIfPaused() took %v, expected ~500ms", elapsed)
+		// Should have actually slept
+		if elapsed < 90*time.Millisecond {
+			t.Errorf("waitIfPaused() took %v, expected ~100ms", elapsed)
+		}
+
+		// Should have attempted to sleep
+		if fakeSleep.getSleepCount() == 0 {
+			t.Error("sleep count = 0, expected at least 1 sleep call")
 		}
 	})
 }

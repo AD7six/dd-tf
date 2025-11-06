@@ -342,7 +342,7 @@ func TestLoadSettings(t *testing.T) {
 		os.Unsetenv("DD_API_KEY")
 		os.Unsetenv("DD_APP_KEY")
 		os.Unsetenv("DD_SITE")
-		os.Unsetenv("DASHBOARDS_DIR")
+		os.Unsetenv("DATA_DIR")
 		os.Unsetenv("DASHBOARDS_PATH_TEMPLATE")
 		os.Unsetenv("HTTP_TIMEOUT")
 	}
@@ -383,9 +383,11 @@ func TestLoadSettings(t *testing.T) {
 			APIKey:                 "test_api_key",
 			AppKey:                 "test_app_key",
 			Site:                   "datadoghq.com",
-			DashboardsDir:          "data/dashboards",
+			DataDir:                "data",
 			DashboardsPathTemplate: "data/dashboards/{id}.json",
 			HTTPTimeout:            60 * time.Second,
+			HTTPMaxBodySize:        10 * 1024 * 1024, // 10MB
+			PageSize:               1000,
 		}
 
 		if !reflect.DeepEqual(got, want) {

@@ -116,3 +116,61 @@ func ExtractIDsFromJSONFiles(dir string) (map[string]string, error) {
 
 	return result, nil
 }
+
+// ExtractIntIDsFromJSONFiles scans a directory recursively for JSON files and extracts integer IDs from their content.
+// Returns a map of id -> absolute file path.
+// Each JSON file must have an "id" field at the top level that is a number (Datadog monitors use integer IDs).
+func ExtractIntIDsFromJSONFiles(dir string) (map[int]string, error) {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("directory does not exist: %s", dir)
+	}
+
+	result := make(map[int]string)
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to access %s: %v\n", path, err)
+			return nil // Continue walking despite errors
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(info.Name(), ".json") {
+			return nil
+		}
+		if info.Size() > maxJSONFileSize {
+			fmt.Fprintf(os.Stderr, "Warning: skipping %s (file too large: %d bytes, max %d bytes)\n", path, info.Size(), maxJSONFileSize)
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to read %s: %v\n", path, err)
+			return nil
+		}
+		var content map[string]any
+		if err := json.Unmarshal(data, &content); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v\n", path, err)
+			return nil
+		}
+		// JSON decoder uses float64 for numbers by default
+		if f, ok := content["id"].(float64); ok {
+			id := int(f)
+			if id == 0 {
+				fmt.Fprintf(os.Stderr, "Warning: invalid 'id' value in %s\n", path)
+				return nil
+			}
+			if existing, exists := result[id]; exists {
+				fmt.Fprintf(os.Stderr, "Warning: duplicate id '%d' in %s (already found in %s)\n", id, path, existing)
+			} else {
+				result[id] = path
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "Warning: no numeric 'id' field in %s\n", path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk directory: %w", err)
+	}
+	return result, nil
+}

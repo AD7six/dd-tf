@@ -1,0 +1,115 @@
+package templating
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+)
+
+var (
+	// PlaceholderRegex matches placeholder patterns like {word}
+	PlaceholderRegex = regexp.MustCompile(`\{([A-Za-z0-9_\-]+)\}`)
+
+	// EnvVarRegex matches environment variable naming pattern (uppercase letters, numbers, underscores)
+	EnvVarRegex = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+)
+
+// replaceEnvVars replaces environment variable placeholders in a string.
+// Placeholders matching the pattern {VAR_NAME} where VAR_NAME is all uppercase
+// with underscores are replaced with the value of the environment variable.
+// If the environment variable is not set or empty, the placeholder is left as-is.
+func replaceEnvVars(pattern string) string {
+	return PlaceholderRegex.ReplaceAllStringFunc(pattern, func(m string) string {
+		sub := PlaceholderRegex.FindStringSubmatch(m)
+		if len(sub) != 2 {
+			return m
+		}
+		name := sub[1]
+
+		// Check if it looks like an environment variable (uppercase with underscores)
+		if EnvVarRegex.MatchString(name) {
+			// Get the environment variable value
+			if val := os.Getenv(name); val != "" {
+				return val
+			}
+		}
+
+		// Leave other placeholders as-is
+		return m
+	})
+}
+
+// TranslatePlaceholders converts placeholders like {id} into Go template expressions.
+// Builtins should map placeholders (e.g. "{id}") to template expressions (e.g. "{{.ID}}").
+// Environment variable placeholders (e.g. {MY_VAR}) are replaced with their env var values first.
+// Any remaining {word} will be mapped to {{.Tags.word}}.
+func TranslatePlaceholders(pattern string, builtins map[string]string) string {
+	// First, replace environment variables
+	p := replaceEnvVars(pattern)
+
+	// Then, replace all builtins
+	for k, v := range builtins {
+		p = strings.ReplaceAll(p, k, v)
+	}
+
+	// Finally, handle remaining placeholders as tags
+	p = PlaceholderRegex.ReplaceAllStringFunc(p, func(m string) string {
+		sub := PlaceholderRegex.FindStringSubmatch(m)
+		if len(sub) != 2 {
+			return m
+		}
+		name := sub[1]
+		return fmt.Sprintf("{{.Tags.%s}}", name)
+	})
+	return p
+}
+
+// ExtractStaticPrefix returns the longest static prefix from a path template.
+// For example, "data/dashboards/{id}.json" returns "data/dashboards".
+// Environment variable placeholders (e.g., {MY_VAR}) and {DATA_DIR} are expanded before extraction.
+// For example, if MY_BASE=/opt/data, then "{MY_BASE}/dashboards/{id}.json" returns "/opt/data/dashboards".
+// This is used to determine the base directory to scan when updating existing files.
+func ExtractStaticPrefix(pathTemplate string) string {
+	if pathTemplate == "" {
+		return ""
+	}
+
+	// First, expand environment variable placeholders
+	expanded := replaceEnvVars(pathTemplate)
+
+	// Also handle {DATA_DIR} placeholder by replacing with DATA_DIR env var if set
+	if dataDir := os.Getenv("DATA_DIR"); dataDir != "" {
+		expanded = strings.ReplaceAll(expanded, "{DATA_DIR}", dataDir)
+	}
+
+	// Find the first remaining placeholder
+	idx := strings.Index(expanded, "{")
+	if idx == -1 {
+		// No placeholders, return the directory portion
+		dir := filepath.Dir(expanded)
+		if dir == "." {
+			return ""
+		}
+		return dir
+	}
+
+	if idx == 0 {
+		// Placeholder at the start, no static prefix
+		return ""
+	}
+
+	// Get everything before the first placeholder
+	prefix := expanded[:idx]
+
+	// Remove trailing path separator
+	prefix = strings.TrimRight(prefix, string(filepath.Separator))
+
+	// Handle edge case where we get "." or empty string
+	if prefix == "." || prefix == "" {
+		return ""
+	}
+
+	return prefix
+}
