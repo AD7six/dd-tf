@@ -23,12 +23,44 @@ build: ## Builds the go binary
 		-o bin/dd-tf ./cmd/dd-tf/main.go
 
 .PHONY: run
-run: ## Compile and run the dev cli
+run: .env ## Compile and run the dev cli
 	go run cmd/dd-tf/main.go
 
 .PHONY: clean
 clean: ## Cleans the build artifacts
 	@rm -rf bin/
+
+.env: # Create .env file with prompts for required variables
+	@echo "Creating .env file..."
+	@echo "# Generated on $$(date)" > .env
+	@echo "" >> .env
+	@echo "## Required" >> .env
+	@echo "# Datadog API key: https://app.datadoghq.eu/organization-settings/api-keys" >> .env
+	@default_api_key=$${DD_API_KEY:-$${DATADOG_API_KEY:-}}; \
+	if [ -n "$$default_api_key" ]; then \
+		read -p "Enter your Datadog API key [$$default_api_key]: " api_key; \
+		api_key=$${api_key:-$$default_api_key}; \
+	else \
+		read -p "Enter your Datadog API key: " api_key; \
+	fi; \
+	echo "DD_API_KEY=$$api_key" >> .env
+	@echo "" >> .env
+	@echo "# Datadog Application key: https://app.datadoghq.eu/organization-settings/application-keys" >> .env
+	@default_app_key=$${DD_APP_KEY:-$${DATADOG_APP_KEY:-$${DD_APPLICATION_KEY:-}}}; \
+	if [ -n "$$default_app_key" ]; then \
+		read -p "Enter your Datadog Application key [$$default_app_key]: " app_key; \
+		app_key=$${app_key:-$$default_app_key}; \
+	else \
+		read -p "Enter your Datadog Application key: " app_key; \
+	fi; \
+	echo "DD_APP_KEY=$$app_key" >> .env
+	@echo "" >> .env
+	@echo "## Optional - defaults" >> .env
+	@echo "" >> .env
+	@sed -n '/^## Optional/,$$p' internal/config/defaults.env | sed '1,2d' | sed 's/^\([A-Z_]*=\)/#\1/' >> .env
+	@echo ""
+	@echo "✓ .env file created successfully!"
+	@echo "You can now edit .env to customize optional settings."
 
 .PHONY: release
 release: ## Interactive release tagging (creates semver git tag)
