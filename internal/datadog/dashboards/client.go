@@ -13,6 +13,7 @@ import (
 	"text/template"
 
 	"github.com/AD7six/dd-tf/internal/config"
+	"github.com/AD7six/dd-tf/internal/datadog/resource"
 	"github.com/AD7six/dd-tf/internal/datadog/templating"
 	internalhttp "github.com/AD7six/dd-tf/internal/http"
 	"github.com/AD7six/dd-tf/internal/storage"
@@ -24,32 +25,15 @@ var (
 	dashboardIDRegex = regexp.MustCompile(`^(?i)[a-z0-9]+-[a-z0-9]+-[a-z0-9]+$`)
 )
 
-// DashboardTarget represents a dashboard ID and the path where it should be written.
-type DashboardTarget struct {
-	ID   string
-	Path string
+// DashboardTarget is an alias for the generic resource.Target with string IDs.
+type DashboardTarget = resource.Target[string]
 
-	// The response to the dashboards endpoint does not include all data
-	// provided in the individual dashboard request; we need the individual
-	// dashboard data. If we've already requested this dashboard's individual
-	// data it is stored here to avoid re-requesting it.
-	FullDashboardResponse map[string]any
-}
-
-// DashboardTargetResult wraps a DashboardTarget with a potential error from target generation.
-type DashboardTargetResult struct {
-	Target DashboardTarget // The dashboard target containing ID and path information
-	Err    error           // Error encountered during target generation, if any
-}
+// DashboardTargetResult is an alias for the generic resource.TargetResult with string IDs.
+type DashboardTargetResult = resource.TargetResult[string]
 
 // DownloadOptions contains options for downloading dashboards.
 type DownloadOptions struct {
-	All         bool   // Download all dashboards
-	Update      bool   // Update existing dashboards from local files
-	OutputPath  string // Custom output path pattern (overrides settings)
-	Team        string // Filter by team tag (convenience flag for team:x)
-	Tags        string // Comma-separated list of tags to filter by
-	DashboardID string // Comma-separated list of dashboard IDs to download
+	resource.BaseDownloadOptions // Embedded common options
 }
 
 // fetchAndFilterDashboards fetches dashboards from the Datadog API, optionally filtered by tags.
@@ -237,8 +221,9 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 	}
 
 	// --id: download specific dashboards by ID
-	if opts.DashboardID != "" {
-		ids := utils.ParseCommaSeparatedIDs(opts.DashboardID)
+	if opts.IDs != "" {
+		idList := opts.IDs
+		ids := utils.ParseCommaSeparatedIDs(idList)
 		go func() {
 			defer close(out)
 			for _, id := range ids {
@@ -283,7 +268,7 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 			}
 			for id, data := range dashboards {
 				// Include cached data to avoid duplicate API call
-				out <- DashboardTargetResult{Target: DashboardTarget{ID: id, Path: "", FullDashboardResponse: data}}
+				out <- DashboardTargetResult{Target: DashboardTarget{ID: id, Path: "", Data: data}}
 			}
 		}()
 		return out, nil
@@ -294,7 +279,7 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 }
 
 // DownloadDashboardWithOptions fetches a dashboard and writes it to the specified path.
-// Uses cached data from target.FullDashboardResponse if available to avoid duplicate API calls.
+// Uses cached data from target.Data if available to avoid duplicate API calls.
 // If target.Path is empty, computes the path using the configured pattern or outputPath override.
 func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) error {
 	normalizedId, err := normalizezDashboardID(target.ID)
@@ -312,8 +297,8 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 	var result map[string]any
 
 	// Use cached data if available (from tag filtering)
-	if target.FullDashboardResponse != nil {
-		result = target.FullDashboardResponse
+	if target.Data != nil {
+		result = target.Data
 	} else {
 		// Fetch from API
 		client := internalhttp.GetHTTPClient(settings)

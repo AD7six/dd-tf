@@ -12,32 +12,22 @@ import (
 	"text/template"
 
 	"github.com/AD7six/dd-tf/internal/config"
+	"github.com/AD7six/dd-tf/internal/datadog/resource"
 	"github.com/AD7six/dd-tf/internal/datadog/templating"
 	internalhttp "github.com/AD7six/dd-tf/internal/http"
 	"github.com/AD7six/dd-tf/internal/storage"
 )
 
-// MonitorTarget represents a monitor ID and the path where it should be written.
-type MonitorTarget struct {
-	ID                  int
-	Path                string
-	FullMonitorResponse map[string]any
-}
+// MonitorTarget is an alias for the generic resource.Target with int IDs.
+type MonitorTarget = resource.Target[int]
 
-type MonitorTargetResult struct {
-	Target MonitorTarget
-	Err    error
-}
+// MonitorTargetResult is an alias for the generic resource.TargetResult with int IDs.
+type MonitorTargetResult = resource.TargetResult[int]
 
 // DownloadOptions contains options for downloading monitors.
 type DownloadOptions struct {
-	All        bool   // Download all monitors
-	Update     bool   // Update existing monitors from local files
-	OutputPath string // Custom output path pattern (overrides settings)
-	Team       string // Filter by team tag (convenience flag for team:x)
-	Tags       string // Comma-separated list of tags to filter by
-	MonitorID  string // Comma-separated list of monitor IDs to download
-	Priority   int    // Filter by monitor priority
+	resource.BaseDownloadOptions     // Embedded common options
+	Priority                     int // Filter by monitor priority
 }
 
 // monitorTemplateData holds the data available in path templates for monitors
@@ -75,8 +65,9 @@ func GenerateMonitorTargets(opts DownloadOptions) (<-chan MonitorTargetResult, e
 
 	// Parse monitor IDs from comma-separated string
 	var ids []int
-	if opts.MonitorID != "" {
-		idStrs := strings.Split(opts.MonitorID, ",")
+	if opts.IDs != "" {
+		idList := opts.IDs
+		idStrs := strings.Split(idList, ",")
 		for _, s := range idStrs {
 			var id int
 			if _, err := fmt.Sscanf(strings.TrimSpace(s), "%d", &id); err != nil {
@@ -190,7 +181,7 @@ func GenerateMonitorTargets(opts DownloadOptions) (<-chan MonitorTargetResult, e
 				continue
 			}
 			idInt := int(idVal)
-			out <- MonitorTargetResult{Target: MonitorTarget{ID: idInt, Path: "", FullMonitorResponse: mon}}
+			out <- MonitorTargetResult{Target: MonitorTarget{ID: idInt, Path: "", Data: mon}}
 		}
 	}()
 	return out, nil
@@ -211,8 +202,8 @@ func DownloadMonitorWithOptions(target MonitorTarget, outputPath string) error {
 		return err
 	}
 	var result map[string]any
-	if target.FullMonitorResponse != nil {
-		result = target.FullMonitorResponse
+	if target.Data != nil {
+		result = target.Data
 	} else {
 		client := internalhttp.GetHTTPClient(settings)
 		url := fmt.Sprintf("https://api.%s/api/v1/monitor/%d", settings.Site, target.ID)

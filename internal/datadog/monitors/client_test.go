@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/AD7six/dd-tf/internal/datadog/resource"
 )
 
 func TestTranslateToTemplate(t *testing.T) {
@@ -147,8 +149,8 @@ func TestComputeMonitorPath(t *testing.T) {
 		}
 
 		target := MonitorTarget{
-			ID:                  12345,
-			FullMonitorResponse: monitor,
+			ID:   12345,
+			Data: monitor,
 		}
 
 		err := DownloadMonitorWithOptions(target, "")
@@ -167,8 +169,8 @@ func TestComputeMonitorPath(t *testing.T) {
 		}
 
 		target := MonitorTarget{
-			ID:                  123,
-			FullMonitorResponse: monitor,
+			ID:   123,
+			Data: monitor,
 		}
 
 		// We'd need to mock settings.LoadSettings() to test this properly
@@ -185,8 +187,8 @@ func TestComputeMonitorPath(t *testing.T) {
 		}
 
 		target := MonitorTarget{
-			ID:                  456,
-			FullMonitorResponse: monitor,
+			ID:   456,
+			Data: monitor,
 		}
 
 		// Similar to above - mainly checking code doesn't panic
@@ -203,8 +205,8 @@ func TestComputeMonitorPath(t *testing.T) {
 		}
 
 		target := MonitorTarget{
-			ID:                  789,
-			FullMonitorResponse: monitor,
+			ID:   789,
+			Data: monitor,
 		}
 
 		err := DownloadMonitorWithOptions(target, "")
@@ -221,8 +223,8 @@ func TestComputeMonitorPath(t *testing.T) {
 		}
 
 		target := MonitorTarget{
-			ID:                  999,
-			FullMonitorResponse: monitor,
+			ID:   999,
+			Data: monitor,
 		}
 
 		// Test that tags are extracted for path generation
@@ -248,8 +250,8 @@ func TestComputeMonitorPath(t *testing.T) {
 		}
 
 		target := MonitorTarget{
-			ID:                  888,
-			FullMonitorResponse: monitor,
+			ID:   888,
+			Data: monitor,
 		}
 
 		err := DownloadMonitorWithOptions(target, "")
@@ -265,8 +267,8 @@ func TestComputeMonitorPath(t *testing.T) {
 		}
 
 		target := MonitorTarget{
-			ID:                  111,
-			FullMonitorResponse: monitor,
+			ID:   111,
+			Data: monitor,
 		}
 
 		customPath := "/custom/{name}-{id}.json"
@@ -284,8 +286,8 @@ func TestComputeMonitorPath(t *testing.T) {
 		}
 
 		target := MonitorTarget{
-			ID:                  222,
-			FullMonitorResponse: monitor,
+			ID:   222,
+			Data: monitor,
 		}
 
 		// Invalid template syntax should trigger fallback
@@ -350,17 +352,19 @@ func TestDownloadOptions(t *testing.T) {
 		// This would require mocking GenerateMonitorTargets
 		// For now, we just validate the struct exists and can be constructed
 		opts := DownloadOptions{
-			All:        false,
-			Update:     false,
-			OutputPath: "/custom/path",
-			Team:       "platform",
-			Tags:       "env:prod,service:api",
-			MonitorID:  "123,456,789",
-			Priority:   1,
+			BaseDownloadOptions: resource.BaseDownloadOptions{
+				All:        false,
+				Update:     false,
+				OutputPath: "/custom/path",
+				Team:       "platform",
+				Tags:       "env:prod,service:api",
+				IDs:        "123,456,789",
+			},
+			Priority: 1,
 		}
 
-		if opts.MonitorID != "123,456,789" {
-			t.Errorf("Expected MonitorID to be preserved, got %q", opts.MonitorID)
+		if opts.IDs != "123,456,789" {
+			t.Errorf("Expected IDs to be preserved, got %q", opts.IDs)
 		}
 		if opts.Team != "platform" {
 			t.Errorf("Expected Team=platform, got %q", opts.Team)
@@ -377,9 +381,9 @@ func TestMonitorTarget(t *testing.T) {
 		}
 
 		target := MonitorTarget{
-			ID:                  12345,
-			Path:                "/data/monitors/12345.json",
-			FullMonitorResponse: monitor,
+			ID:   12345,
+			Path: "/data/monitors/12345.json",
+			Data: monitor,
 		}
 
 		if target.ID != 12345 {
@@ -388,8 +392,8 @@ func TestMonitorTarget(t *testing.T) {
 		if target.Path != "/data/monitors/12345.json" {
 			t.Errorf("Expected specific path, got %q", target.Path)
 		}
-		if target.FullMonitorResponse == nil {
-			t.Error("Expected FullMonitorResponse to be set")
+		if target.Data == nil {
+			t.Error("Expected Data to be set")
 		}
 	})
 
@@ -399,8 +403,8 @@ func TestMonitorTarget(t *testing.T) {
 			Path: "/custom/path.json",
 		}
 
-		if target.FullMonitorResponse != nil {
-			t.Error("Expected FullMonitorResponse to be nil")
+		if target.Data != nil {
+			t.Error("Expected Data to be nil")
 		}
 	})
 }

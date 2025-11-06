@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/AD7six/dd-tf/internal/datadog/monitors"
+	"github.com/AD7six/dd-tf/internal/datadog/resource"
 	"github.com/spf13/cobra"
 )
 
@@ -50,13 +51,15 @@ func NewDownloadCmd() *cobra.Command {
 
 func runDownload(allFlag, updateFlag bool, outputPath, team, tags, monitorID string, priority int) error {
 	opts := monitors.DownloadOptions{
-		All:        allFlag,
-		Update:     updateFlag,
-		OutputPath: outputPath,
-		Team:       team,
-		Tags:       tags,
-		MonitorID:  monitorID,
-		Priority:   priority,
+		BaseDownloadOptions: resource.BaseDownloadOptions{
+			All:        allFlag,
+			Update:     updateFlag,
+			OutputPath: outputPath,
+			Team:       team,
+			Tags:       tags,
+			IDs:        monitorID,
+		},
+		Priority: priority,
 	}
 
 	targetsCh, err := monitors.GenerateMonitorTargets(opts)
