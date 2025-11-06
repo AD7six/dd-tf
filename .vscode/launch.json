@@ -18,6 +18,34 @@
             "envFile": "${workspaceFolder}/.env",
             "showLog": false,
             "trace": "verbose"
+        },
+        {
+            "name": "Download All Monitors",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/dd-tf",
+            "args": [
+                "monitors",
+                "download",
+                "--all"
+            ],
+            "envFile": "${workspaceFolder}/.env",
+            "showLog": false,
+            "trace": "verbose"
+        },
+        {
+            "name": "Version Info",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/dd-tf",
+            "args": [
+                "version",
+            ],
+            "envFile": "${workspaceFolder}/.env",
+            "showLog": false,
+            "trace": "verbose"
         }
     ]
 }
