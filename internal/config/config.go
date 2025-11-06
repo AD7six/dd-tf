@@ -18,6 +18,7 @@ type Settings struct {
 	Site                   string        // Datadog site (e.g., datadoghq.com). Used to build https://api.{Site}
 	DataDir                string        // Base data directory for all resources (default: data/)
 	DashboardsPathTemplate string        // Path template for dashboard full path, defaults to "{DATA_DIR}/dashboards/{id}.json"
+	MonitorsPathTemplate   string        // Path template for monitor full path, defaults to "{DATA_DIR}/monitors/{id}.json"
 	HTTPTimeout            time.Duration // HTTP client timeout, defaults to 60 seconds
 	HTTPMaxBodySize        int64         // Maximum allowed API response body size in bytes, defaults to 10MB
 	PageSize               int           // Number of results per page for list endpoints, defaults to 1000
@@ -25,7 +26,7 @@ type Settings struct {
 
 // LoadSettings loads configuration from environment variables and optional .env file.
 // Required environment variables: DD_API_KEY, DD_APP_KEY.
-// Optional variables: DD_SITE, DATA_DIR, DASHBOARDS_PATH_TEMPLATE, HTTP_TIMEOUT, HTTP_MAX_BODY_SIZE, PAGE_SIZE.
+// Optional variables: DD_SITE, DATA_DIR, DASHBOARDS_PATH_TEMPLATE, MONITORS_PATH_TEMPLATE, HTTP_TIMEOUT, HTTP_MAX_BODY_SIZE, PAGE_SIZE.
 func LoadSettings() (*Settings, error) {
 	// If .env exists, try to load it
 	if _, err := os.Stat(".env"); err == nil {
@@ -53,6 +54,7 @@ func LoadSettings() (*Settings, error) {
 
 	dataDir := getEnv("DATA_DIR", "data")
 	dashboardsPathTemplate := getEnv("DASHBOARDS_PATH_TEMPLATE", filepath.Join(dataDir, "dashboards", "{id}.json"))
+	monitorsPathTemplate := getEnv("MONITORS_PATH_TEMPLATE", filepath.Join(dataDir, "monitors", "{id}.json"))
 
 	httpTimeout := time.Duration(getEnvInt("HTTP_TIMEOUT", 60)) * time.Second
 	HTTPMaxBodySize := int64(getEnvInt("HTTP_MAX_BODY_SIZE", 10*1024*1024)) // 10MB default
@@ -64,6 +66,7 @@ func LoadSettings() (*Settings, error) {
 		Site:                   site,
 		DataDir:                dataDir,
 		DashboardsPathTemplate: dashboardsPathTemplate,
+		MonitorsPathTemplate:   monitorsPathTemplate,
 		HTTPTimeout:            httpTimeout,
 		HTTPMaxBodySize:        HTTPMaxBodySize,
 		PageSize:               pageSize,

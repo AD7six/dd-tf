@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/AD7six/dd-tf/internal/commands/dashboards"
+	"github.com/AD7six/dd-tf/internal/commands/monitors"
 	"github.com/AD7six/dd-tf/internal/commands/version"
 	"github.com/spf13/cobra"
 )
@@ -24,6 +25,7 @@ func main() {
 	root.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose/debug output (shows curl commands)")
 
 	root.AddCommand(dashboards.NewDashboardsCmd())
+	root.AddCommand(monitors.NewMonitorsCmd())
 	root.AddCommand(version.NewVersionCmd())
 
 	cobra.CheckErr(root.Execute())

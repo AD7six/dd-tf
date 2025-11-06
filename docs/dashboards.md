@@ -63,3 +63,4 @@ Notes:
 ## See also
 
 - General docs: [docs/README.md](./README.md)
+- Monitors: [docs/monitors.md](./monitors.md)

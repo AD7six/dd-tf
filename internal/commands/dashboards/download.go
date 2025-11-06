@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/AD7six/dd-tf/internal/datadog/dashboards"
+	"github.com/AD7six/dd-tf/internal/datadog/resource"
 	"github.com/spf13/cobra"
 )
 
@@ -48,12 +49,14 @@ func NewDownloadCmd() *cobra.Command {
 
 func runDownload(allFlag, updateFlag bool, outputPath, team, tags, dashboardID string) error {
 	opts := dashboards.DownloadOptions{
-		All:         allFlag,
-		Update:      updateFlag,
-		OutputPath:  outputPath,
-		Team:        team,
-		Tags:        tags,
-		DashboardID: dashboardID,
+		BaseDownloadOptions: resource.BaseDownloadOptions{
+			All:        allFlag,
+			Update:     updateFlag,
+			OutputPath: outputPath,
+			Team:       team,
+			Tags:       tags,
+			IDs:        dashboardID,
+		},
 	}
 
 	targetsCh, err := dashboards.GenerateDashboardTargets(opts)

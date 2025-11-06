@@ -385,6 +385,7 @@ func TestLoadSettings(t *testing.T) {
 			Site:                   "datadoghq.com",
 			DataDir:                "data",
 			DashboardsPathTemplate: "data/dashboards/{id}.json",
+			MonitorsPathTemplate:   "data/monitors/{id}.json",
 			HTTPTimeout:            60 * time.Second,
 			HTTPMaxBodySize:        10 * 1024 * 1024, // 10MB
 			PageSize:               1000,

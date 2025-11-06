@@ -1,11 +1,13 @@
 package templating
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"text/template"
 )
 
 var (
@@ -66,6 +68,27 @@ func TranslatePlaceholders(pattern string, builtins map[string]string) string {
 	return p
 }
 
+// BuildDashboardBuiltins returns the builtins map for dashboard path templates.
+func BuildDashboardBuiltins() map[string]string {
+	return map[string]string{
+		"{DATA_DIR}": "{{.DataDir}}",
+		"{id}":       "{{.ID}}",
+		"{title}":    "{{.Title}}",
+		"{name}":     "{{.Title}}", // Alias for consistency with monitors
+	}
+}
+
+// BuildMonitorBuiltins returns the builtins map for monitor path templates.
+func BuildMonitorBuiltins() map[string]string {
+	return map[string]string{
+		"{DATA_DIR}": "{{.DataDir}}",
+		"{id}":       "{{.ID}}",
+		"{name}":     "{{.Name}}",
+		"{title}":    "{{.Name}}", // Alias for consistency with dashboards
+		"{priority}": "{{.Priority}}",
+	}
+}
+
 // ExtractStaticPrefix returns the longest static prefix from a path template.
 // For example, "data/dashboards/{id}.json" returns "data/dashboards".
 // Environment variable placeholders (e.g., {MY_VAR}) and {DATA_DIR} are expanded before extraction.
@@ -112,4 +135,28 @@ func ExtractStaticPrefix(pathTemplate string) string {
 	}
 
 	return prefix
+}
+
+// ComputePathFromTemplate executes a Go template to compute a file path.
+// It handles template parsing, execution, and error fallback.
+// The pattern should already be translated (using TranslatePlaceholders).
+// Returns the computed path, replacing "<no value>" with "none".
+func ComputePathFromTemplate(pattern string, data any, fallbackPath string) string {
+	// Parse template
+	tmpl, err := template.New("path").Parse(pattern)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse path template: %v\n", err)
+		return fallbackPath
+	}
+
+	// Execute template
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to execute path template: %v\n", err)
+		return fallbackPath
+	}
+
+	// Replace "<no value>" (from missing template fields) with "none"
+	result := strings.ReplaceAll(buf.String(), "<no value>", "none")
+	return result
 }
