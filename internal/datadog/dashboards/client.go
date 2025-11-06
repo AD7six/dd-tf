@@ -13,19 +13,13 @@ import (
 	"text/template"
 
 	"github.com/AD7six/dd-tf/internal/config"
+	"github.com/AD7six/dd-tf/internal/datadog/templating"
 	internalhttp "github.com/AD7six/dd-tf/internal/http"
 	"github.com/AD7six/dd-tf/internal/storage"
 	"github.com/AD7six/dd-tf/internal/utils"
 )
 
-const (
-	// maxResponseBodySize is the maximum size allowed for API response bodies to prevent DoS
-	maxResponseBodySize = 10 * 1024 * 1024 // 10MB
-)
-
 var (
-	// placeholderRegex matches placeholder patterns like {word} for template conversion
-	placeholderRegex = regexp.MustCompile(`\{([A-Za-z0-9_\-]+)\}`)
 	// dashboardIDRegex validates dashboard ID format (xxx-xxx-xxx)
 	dashboardIDRegex = regexp.MustCompile(`^(?i)[a-z0-9]+-[a-z0-9]+-[a-z0-9]+$`)
 )
@@ -67,69 +61,89 @@ func fetchAndFilterDashboards(filterTags []string, fullData bool) (map[string]ma
 	}
 
 	client := internalhttp.GetHTTPClient(settings)
-	url := fmt.Sprintf("https://api.%s/api/v1/dashboard", settings.Site)
 
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch dashboards: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
+	// Fetch all dashboard IDs with pagination
+	// Dashboards API uses 'start' and 'count' parameters for pagination
+	var allDashboardIDs []string
+	start := 0
+	count := settings.PageSize
+	for {
+		url := fmt.Sprintf("https://api.%s/api/v1/dashboard?start=%d&count=%d", settings.Site, start, count)
+		resp, err := client.Get(url)
 		if err != nil {
-			return nil, fmt.Errorf("API error %s (failed to read response body: %w)", resp.Status, err)
+			return nil, fmt.Errorf("failed to fetch dashboards (start=%d): %w", start, err)
 		}
-		return nil, fmt.Errorf("API error: %s\n%s", resp.Status, string(body))
-	}
 
-	// Parse response to get dashboard IDs
-	var result struct {
-		Dashboards []struct {
-			ID string `json:"id"`
-		} `json:"dashboards"`
-	}
+		if resp.StatusCode != http.StatusOK {
+			body, err := io.ReadAll(io.LimitReader(resp.Body, settings.HTTPMaxBodySize))
+			resp.Body.Close()
+			if err != nil {
+				return nil, fmt.Errorf("API error %s (start=%d) (failed to read response body: %w)", resp.Status, start, err)
+			}
+			return nil, fmt.Errorf("API error (start=%d): %s\n%s", start, resp.Status, string(body))
+		}
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		// Parse response to get dashboard IDs
+		var result struct {
+			Dashboards []struct {
+				ID string `json:"id"`
+			} `json:"dashboards"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			resp.Body.Close()
+			return nil, fmt.Errorf("failed to decode response (start=%d): %w", start, err)
+		}
+		resp.Body.Close()
+
+		if len(result.Dashboards) == 0 {
+			break
+		}
+
+		for _, dashboard := range result.Dashboards {
+			if dashboard.ID != "" {
+				allDashboardIDs = append(allDashboardIDs, dashboard.ID)
+			}
+		}
+
+		// If we got fewer results than requested count, this is the last page
+		if len(result.Dashboards) < count {
+			break
+		}
+		start += len(result.Dashboards)
 	}
 
 	// If no filtering and we don't need full data, return early with just IDs
 	if len(filterTags) == 0 && !fullData {
-		dashboards := make(map[string]map[string]any, len(result.Dashboards))
-		for _, dashboard := range result.Dashboards {
-			if dashboard.ID != "" {
-				dashboards[dashboard.ID] = nil // No data needed, just ID
-			}
+		dashboards := make(map[string]map[string]any, len(allDashboardIDs))
+		for _, id := range allDashboardIDs {
+			dashboards[id] = nil // No data needed, just ID
 		}
 		return dashboards, nil
 	}
 
 	// Fetch individual dashboards when filtering or when full data is needed
 	dashboards := make(map[string]map[string]any)
-	for _, dashboard := range result.Dashboards {
-		if dashboard.ID == "" {
-			continue
-		}
+	for _, id := range allDashboardIDs {
 
 		// Fetch full dashboard to get tags (and potentially cache the data)
-		dashboardURL := fmt.Sprintf("https://api.%s/api/v1/dashboard/%s", settings.Site, dashboard.ID)
+		dashboardURL := fmt.Sprintf("https://api.%s/api/v1/dashboard/%s", settings.Site, id)
 		dashResp, err := client.Get(dashboardURL)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to fetch dashboard %s: %v\n", dashboard.ID, err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to fetch dashboard %s: %v\n", id, err)
 			continue
 		}
 
 		if dashResp.StatusCode != http.StatusOK {
 			dashResp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Warning: failed to fetch dashboard %s: %s\n", dashboard.ID, dashResp.Status)
+			fmt.Fprintf(os.Stderr, "Warning: failed to fetch dashboard %s: %s\n", id, dashResp.Status)
 			continue
 		}
 
 		var dashData map[string]any
 		if err := json.NewDecoder(dashResp.Body).Decode(&dashData); err != nil {
 			dashResp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Warning: failed to decode dashboard %s: %v\n", dashboard.ID, err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to decode dashboard %s: %v\n", id, err)
 			continue
 		}
 		dashResp.Body.Close()
@@ -147,11 +161,11 @@ func fetchAndFilterDashboards(filterTags []string, fullData bool) (map[string]ma
 		}
 
 		// Check if dashboard has all required filter tags
-		if hasAllTags(tags, filterTags) {
+		if templating.HasAllTagsSlice(tags, filterTags) {
 			if fullData {
-				dashboards[dashboard.ID] = dashData
+				dashboards[id] = dashData
 			} else {
-				dashboards[dashboard.ID] = nil // Just store the ID
+				dashboards[id] = nil // Just store the ID
 			}
 		}
 	}
@@ -159,37 +173,11 @@ func fetchAndFilterDashboards(filterTags []string, fullData bool) (map[string]ma
 	return dashboards, nil
 }
 
-// hasAllTags checks if dashboardTags contains all of the required filterTags.
-// Tag matching is case-insensitive.
-func hasAllTags(dashboardTags, filterTags []string) bool {
-	if len(filterTags) == 0 {
-		return true
-	}
-
-	// Normalize dashboard tags to lowercase for case-insensitive comparison
-	tagSet := make(map[string]bool, len(dashboardTags))
-	for _, tag := range dashboardTags {
-		tagSet[strings.ToLower(tag)] = true
-	}
-
-	// Check if all filter tags are present
-	for _, filterTag := range filterTags {
-		if !tagSet[strings.ToLower(filterTag)] {
-			return false
-		}
-	}
-
-	return true
-}
-
 // normalizezDashboardID validates that the dashboard ID follows the expected
 // format (xxx-xxx-xxx). Handles case if that matters.
 func normalizezDashboardID(id string) (string, error) {
 	if id == "" {
 		return "", fmt.Errorf("dashboard ID cannot be empty")
-	}
-	if len(id) > 100 {
-		return "", fmt.Errorf("dashboard ID too long (max 100 characters)")
 	}
 	if !dashboardIDRegex.MatchString(id) {
 		return "", fmt.Errorf("invalid dashboard ID format: %s (expected format: xxx-xxx-xxx)", id)
@@ -214,7 +202,12 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 	if opts.Update {
 		go func() {
 			defer close(out)
-			idToPath, err := storage.ExtractIDsFromJSONFiles(settings.DashboardsDir)
+			// Extract the static directory prefix from the path template
+			dashboardsDir := templating.ExtractStaticPrefix(settings.DashboardsPathTemplate)
+			if dashboardsDir == "" {
+				dashboardsDir = filepath.Join(settings.DataDir, "dashboards")
+			}
+			idToPath, err := storage.ExtractIDsFromJSONFiles(dashboardsDir)
 			if err != nil {
 				out <- DashboardTargetResult{Err: fmt.Errorf("failed to scan directory: %w", err)}
 				return
@@ -333,7 +326,7 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodySize))
+			body, err := io.ReadAll(io.LimitReader(resp.Body, settings.HTTPMaxBodySize))
 			if err != nil {
 				return fmt.Errorf("API error %s (failed to read response body: %w)", resp.Status, err)
 			}
@@ -362,53 +355,36 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 
 // dashboardTemplateData holds the data available in path templates
 type dashboardTemplateData struct {
-	DashboardsDir string
-	ID            string
-	Title         string
-	Tags          map[string]string
+	DataDir string
+	ID      string
+	Title   string
+	Tags    map[string]string
 }
 
 // translateToTemplate converts simpler convenience placeholders like
 //
-//	{DASHBOARDS_DIR}, {id}, {title}, {team}
+//	{DATA_DIR}, {id}, {title}, {team}
 //
 // into Go template expressions:
 //
-//	{{.DashboardsDir}}, {{.ID}}, {{.Title}}, {{.Tags.team}}.
+//	{{.DataDir}}, {{.ID}}, {{.Title}}, {{.Tags.team}}.
 //
-// Any unknown {name} will be translated to {{.Tags.name}} to support dynamic
+// Any unknown {unknown} will be translated to {{.Tags.unknown}} to support dynamic
 // tag-based placeholders.
 func translateToTemplate(p string) string {
-	// First replace known built-ins explicitly to avoid treating them as tags
 	builtin := map[string]string{
-		"{DASHBOARDS_DIR}": "{{.DashboardsDir}}",
-		"{id}":             "{{.ID}}",
-		"{title}":          "{{.Title}}",
+		"{DATA_DIR}": "{{.DataDir}}",
+		"{id}":       "{{.ID}}",
+		"{title}":    "{{.Title}}",
+		"{name}":     "{{.Title}}", // Support {name} as an alias for {title} to provide consistency across different resources
 	}
-	for k, v := range builtin {
-		p = strings.ReplaceAll(p, k, v)
-	}
-
-	// Then translate any remaining {word} into {{.Tags.word}}
-	p = placeholderRegex.ReplaceAllStringFunc(p, func(m string) string {
-		sub := placeholderRegex.FindStringSubmatch(m)
-		if len(sub) != 2 {
-			return m
-		}
-		name := sub[1]
-		// Explicit support for {team}
-		if name == "team" {
-			return "{{.Tags.team}}"
-		}
-		return fmt.Sprintf("{{.Tags.%s}}", name)
-	})
-	return p
+	return templating.TranslatePlaceholders(p, builtin)
 }
 
 // ComputeDashboardPath computes the file path from the configured pattern or outputPath override using Go templates.
 // Template variables:
 //
-//	{{.DashboardsDir}} - the dashboards directory from settings
+//	{{.DataDir}} - the data directory from settings
 //	{{.ID}} - dashboard ID
 //	{{.Title}} - sanitized dashboard title
 //	{{.Tags.team}} - value of "team" tag (empty if not found)
@@ -424,24 +400,8 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 	// rendering
 	pattern = translateToTemplate(pattern)
 
-	// Extract tags from dashboard and build tag map
-	tagMap := make(map[string]string)
-
-	if tagsInterface, ok := dashboard["tags"]; ok {
-		if tags, ok := tagsInterface.([]interface{}); ok {
-			for _, tagInterface := range tags {
-				if tag, ok := tagInterface.(string); ok {
-					// Tags are in format "key:value"
-					parts := strings.SplitN(tag, ":", 2)
-					if len(parts) == 2 {
-						key := strings.TrimSpace(parts[0])
-						value := strings.TrimSpace(parts[1])
-						tagMap[key] = storage.SanitizeFilename(value)
-					}
-				}
-			}
-		}
-	}
+	// Extract and sanitize tags from dashboard
+	tagMap := templating.ExtractTagMap(dashboard["tags"], true)
 
 	// Extract ID - required field
 	id, ok := dashboard["id"].(string)
@@ -460,26 +420,24 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 
 	// Build template data
 	data := dashboardTemplateData{
-		DashboardsDir: settings.DashboardsDir,
-		ID:            id,
-		Title:         storage.SanitizeFilename(title),
-		Tags:          tagMap,
+		DataDir: settings.DataDir,
+		ID:      id,
+		Title:   storage.SanitizeFilename(title),
+		Tags:    tagMap,
 	}
 
 	// Create template
 	tmpl, err := template.New("path").Parse(pattern)
 	if err != nil {
-		// If template parsing fails, fall back to literal pattern
 		fmt.Fprintf(os.Stderr, "Warning: failed to parse path template: %v\n", err)
-		return filepath.Join(settings.DashboardsDir, id+".json")
+		return filepath.Join(settings.DataDir, "dashboards", id+".json")
 	}
 
 	// Execute template
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		// If execution fails, fall back to literal pattern
 		fmt.Fprintf(os.Stderr, "Warning: failed to execute path template: %v\n", err)
-		return filepath.Join(settings.DashboardsDir, id+".json")
+		return filepath.Join(settings.DataDir, "dashboards", id+".json")
 	}
 
 	// Replace "<no value>" (from missing tags) with "none"

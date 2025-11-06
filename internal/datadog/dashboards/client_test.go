@@ -10,8 +10,8 @@ import (
 
 func TestComputeDashboardPath_MissingFields(t *testing.T) {
 	settings := &config.Settings{
-		DashboardsDir:          "/test/dashboards",
-		DashboardsPathTemplate: "{DASHBOARDS_DIR}/{id}-{title}.json",
+		DataDir:                "/test/data",
+		DashboardsPathTemplate: "{DATA_DIR}/dashboards/{id}-{title}.json",
 	}
 
 	t.Run("missing id field", func(t *testing.T) {
@@ -126,7 +126,7 @@ func TestComputeDashboardPath_MissingFields(t *testing.T) {
 
 		path := ComputeDashboardPath(settings, dashboard, "")
 
-		expected := filepath.Join("/test/dashboards", "valid-123-My-Dashboard.json")
+		expected := filepath.Join("/test/data/dashboards", "valid-123-My-Dashboard.json")
 		if path != expected {
 			t.Errorf("Expected path %s, got: %s", expected, path)
 		}
@@ -135,8 +135,8 @@ func TestComputeDashboardPath_MissingFields(t *testing.T) {
 
 func TestComputeDashboardPath_WithTags(t *testing.T) {
 	settings := &config.Settings{
-		DashboardsDir:          "/test/dashboards",
-		DashboardsPathTemplate: "{DASHBOARDS_DIR}/{team}/{title}-{id}.json",
+		DataDir:                "/test/data",
+		DashboardsPathTemplate: "{DATA_DIR}/dashboards/{team}/{title}-{id}.json",
 	}
 
 	t.Run("with valid tags", func(t *testing.T) {
@@ -174,8 +174,8 @@ func TestComputeDashboardPath_WithTags(t *testing.T) {
 
 func TestComputeDashboardPath_WithOutputOverride(t *testing.T) {
 	settings := &config.Settings{
-		DashboardsDir:          "/test/dashboards",
-		DashboardsPathTemplate: "{DASHBOARDS_DIR}/{id}.json", // Default pattern
+		DataDir:                "/test/data",
+		DashboardsPathTemplate: "{DATA_DIR}/dashboards/{id}.json", // Default pattern
 	}
 
 	dashboard := map[string]any{
@@ -198,7 +198,7 @@ func TestComputeDashboardPath_WithOutputOverride(t *testing.T) {
 	t.Run("uses default pattern when override is empty", func(t *testing.T) {
 		path := ComputeDashboardPath(settings, dashboard, "")
 
-		expected := filepath.Join("/test/dashboards", "override-123.json")
+		expected := filepath.Join("/test/data/dashboards", "override-123.json")
 		if path != expected {
 			t.Errorf("Expected path %s, got: %s", expected, path)
 		}
