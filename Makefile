@@ -12,7 +12,7 @@ lint: go-lint ## Lint code
 
 .PHONY: test
 test: ## Runs go tests
-	@go test -v ./...	
+	@go test ./...	
 
 .PHONY: build
 build: ## Builds the go binary
