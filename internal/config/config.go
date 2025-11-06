@@ -1,6 +1,7 @@
 package config
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,12 +12,14 @@ import (
 	"github.com/joho/godotenv"
 )
 
+//go:embed defaults.env
+var embeddedDefaults string
+
 // Settings contains configuration for the Datadog API client and dashboard management.
 type Settings struct {
 	APIKey                 string        // Required, Datadog API key
 	AppKey                 string        // Required, Datadog application key
 	Site                   string        // Datadog site (e.g., datadoghq.com). Used to build https://api.{Site}
-	DataDir                string        // Base data directory for all resources (default: data/)
 	DashboardsPathTemplate string        // Path template for dashboard full path, defaults to "{DATA_DIR}/dashboards/{id}.json"
 	MonitorsPathTemplate   string        // Path template for monitor full path, defaults to "{DATA_DIR}/monitors/{id}.json"
 	HTTPTimeout            time.Duration // HTTP client timeout, defaults to 60 seconds
@@ -24,13 +27,27 @@ type Settings struct {
 	PageSize               int           // Number of results per page for list endpoints, defaults to 1000
 }
 
-// LoadSettings loads configuration from environment variables and optional .env file.
+// LoadSettings loads configuration from environment variables and optional .env files.
+// Embedded defaults are loaded first, then .env file (if present) overrides them.
 // Required environment variables: DD_API_KEY, DD_APP_KEY.
 // Optional variables: DD_SITE, DATA_DIR, DASHBOARDS_PATH_TEMPLATE, MONITORS_PATH_TEMPLATE, HTTP_TIMEOUT, HTTP_MAX_BODY_SIZE, PAGE_SIZE.
 func LoadSettings() (*Settings, error) {
-	// If .env exists, try to load it
+	// Load embedded defaults first
+	envMap, err := godotenv.Unmarshal(embeddedDefaults)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: error parsing embedded defaults: %v\n", err)
+	} else {
+		// Set defaults only if not already set
+		for k, v := range envMap {
+			if os.Getenv(k) == "" {
+				os.Setenv(k, v)
+			}
+		}
+	}
+
+	// Then load .env (if it exists) to override defaults
 	if _, err := os.Stat(".env"); err == nil {
-		err := godotenv.Load()
+		err := godotenv.Overload(".env")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: error loading .env file: %v\n", err)
 		}
@@ -64,7 +81,6 @@ func LoadSettings() (*Settings, error) {
 		APIKey:                 apiKey,
 		AppKey:                 appKey,
 		Site:                   site,
-		DataDir:                dataDir,
 		DashboardsPathTemplate: dashboardsPathTemplate,
 		MonitorsPathTemplate:   monitorsPathTemplate,
 		HTTPTimeout:            httpTimeout,
