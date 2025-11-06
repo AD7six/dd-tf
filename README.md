@@ -23,12 +23,17 @@ Common commands:
 # Dashboards
 bin/dd-tf dashboards download --all
 bin/dd-tf dashboards download --id=abc-def-ghi
+
+# Monitors
+bin/dd-tf monitors download --all
+bin/dd-tf monitors download --id=1234
 ```
 
 ## Documentation
 
 - Start: [docs/README.md](docs/README.md)
 - Dashboards command: [docs/dashboards.md](docs/dashboards.md)
+- Monitors command: [docs/monitors.md](docs/monitors.md)
 
 ## License
 

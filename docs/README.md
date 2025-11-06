@@ -60,6 +60,7 @@ Optional:
 - `DD_SITE` – Datadog site parameter (default: `datadoghq.com`)
 - `DATA_DIR` – base folder for data files (default: `data`)
 - `DASHBOARDS_PATH_TEMPLATE` – dashboard path pattern (default: `{DATA_DIR}/dashboards/{id}.json`)
+- `MONITORS_PATH_TEMPLATE` – monitor path pattern (default: `{DATA_DIR}/monitors/{id}.json`)
 - `HTTP_TIMEOUT` – HTTP client timeout in seconds (default: `60`)
 
 `.env` example:
@@ -70,6 +71,7 @@ DD_APP_KEY=your_app_key
 # DD_SITE=datadoghq.eu # or us3.datadoghq.com, etc. 
 # DATA_DIR=/my/datadog/account/data/is/here
 # DASHBOARDS_PATH_TEMPLATE={DATA_DIR}/dashboards/{team}/{title}-{id}.json
+# MONITORS_PATH_TEMPLATE={DATA_DIR}/monitors/{team}/{name}-{id}.json
 # HTTP_TIMEOUT=60
 ```
 
@@ -78,21 +80,25 @@ DD_APP_KEY=your_app_key
 Defaults:
 
 - Dashboards: `data/dashboards/{id}.json`
+- Monitors: `data/monitors/{id}.json`
 
 Override via CLI:
 
 ```bash
 dd-tf dashboards download --all --output='/somewhere/else/{id}-{title}.json'
+dd-tf monitors   download --all --output='/somewhere/else/{id}-{name}.json'
 ```
 
-Or set environment variables: `DATA_DIR`, `DASHBOARDS_PATH_TEMPLATE`
+Or set environment variables: `DATA_DIR`, `DASHBOARDS_PATH_TEMPLATE`, `MONITORS_PATH_TEMPLATE`.
 
 Supported placeholders (rendered with Go templates):
 
 - `{DATA_DIR}`
 - `{id}`
-- `{title}` 
+- `{title}` (dashboards)
+- `{name}` (monitors)
 - `{team}`
+- `{priority}` (monitors)
 - Any tag key placeholder like `{env}` or `{service}` – any tag present on the resource
 
 Notes:
@@ -103,12 +109,14 @@ Notes:
 ## Usage
 
 - Dashboards command: see [docs/dashboards.md](./dashboards.md)
+- Monitors command: see [docs/monitors.md](./monitors.md)
 
 You can always list commands via:
 
 ```bash
 bin/dd-tf --help
 bin/dd-tf dashboards --help
+bin/dd-tf monitors --help
 ```
 
 ## Workflows
@@ -181,6 +189,7 @@ Periodically run the equivalent of these commands:
 cd /my/datadog/git/archive
 mv data olddata                 # Move previous data out the way
 dd-tf dashboards download --all # Download all dashboards
+dd-tf monitors download --all   # Download all monitors
 git add data                    # Add all current data
 git commit -am "current state"
 ```
@@ -229,6 +238,10 @@ version.
 
 - [Terraform Datadog dashboard resource][datadog_dashboard_resource]
 - [Terraform Datadog dashboard_json resource][datadog_dashboard_json_resource]
+- [Terraform Datadog monitor resource][datadog_monitor_resource]
+- [Terraform Datadog monitor_json resource][datadog_monitor_json_resource]
 
 [datadog_dashboard_resource]: https://registry.terraform.io/providers/DataDog/datadog/latest/docs/resources/dashboard
 [datadog_dashboard_json_resource]: https://registry.terraform.io/providers/DataDog/datadog/latest/docs/resources/dashboard_json
+[datadog_monitor_resource]: https://registry.terraform.io/providers/DataDog/datadog/latest/docs/resources/monitor
+[datadog_monitor_json_resource]: https://registry.terraform.io/providers/DataDog/datadog/latest/docs/resources/monitor_json
