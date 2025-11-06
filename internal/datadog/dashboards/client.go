@@ -1,7 +1,6 @@
 package dashboards
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,7 +9,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"text/template"
 
 	"github.com/AD7six/dd-tf/internal/config"
 	"github.com/AD7six/dd-tf/internal/datadog/resource"
@@ -391,21 +389,7 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 		Tags:    tagMap,
 	}
 
-	// Create template
-	tmpl, err := template.New("path").Parse(pattern)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to parse path template: %v\n", err)
-		return filepath.Join(settings.DataDir, "dashboards", id+".json")
-	}
-
-	// Execute template
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to execute path template: %v\n", err)
-		return filepath.Join(settings.DataDir, "dashboards", id+".json")
-	}
-
-	// Replace "<no value>" (from missing tags) with "none"
-	result := strings.ReplaceAll(buf.String(), "<no value>", "none")
-	return result
+	// Compute path from template with fallback
+	fallbackPath := filepath.Join(settings.DataDir, "dashboards", id+".json")
+	return templating.ComputePathFromTemplate(pattern, data, fallbackPath)
 }

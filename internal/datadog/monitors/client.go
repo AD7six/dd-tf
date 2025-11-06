@@ -1,15 +1,12 @@
 package monitors
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/AD7six/dd-tf/internal/config"
 	"github.com/AD7six/dd-tf/internal/datadog/resource"
@@ -242,19 +239,9 @@ func DownloadMonitorWithOptions(target MonitorTarget, outputPath string) error {
 			Tags:     tagMap,
 			Priority: prio,
 		}
-		tmpl, err := template.New("path").Parse(pattern)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to parse path template: %v\n", err)
-			targetPath = filepath.Join(settings.DataDir, "monitors", fmt.Sprintf("%d.json", target.ID))
-		} else {
-			var buf bytes.Buffer
-			if err := tmpl.Execute(&buf, data); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to execute path template: %v\n", err)
-				targetPath = filepath.Join(settings.DataDir, "monitors", fmt.Sprintf("%d.json", target.ID))
-			} else {
-				targetPath = strings.ReplaceAll(buf.String(), "<no value>", "none")
-			}
-		}
+
+		fallbackPath := filepath.Join(settings.DataDir, "monitors", fmt.Sprintf("%d.json", target.ID))
+		targetPath = templating.ComputePathFromTemplate(pattern, data, fallbackPath)
 	}
 	if err := storage.WriteJSONFile(targetPath, result); err != nil {
 		return err

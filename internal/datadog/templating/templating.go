@@ -1,11 +1,13 @@
 package templating
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"text/template"
 )
 
 var (
@@ -133,4 +135,28 @@ func ExtractStaticPrefix(pathTemplate string) string {
 	}
 
 	return prefix
+}
+
+// ComputePathFromTemplate executes a Go template to compute a file path.
+// It handles template parsing, execution, and error fallback.
+// The pattern should already be translated (using TranslatePlaceholders).
+// Returns the computed path, replacing "<no value>" with "none".
+func ComputePathFromTemplate(pattern string, data any, fallbackPath string) string {
+	// Parse template
+	tmpl, err := template.New("path").Parse(pattern)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse path template: %v\n", err)
+		return fallbackPath
+	}
+
+	// Execute template
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to execute path template: %v\n", err)
+		return fallbackPath
+	}
+
+	// Replace "<no value>" (from missing template fields) with "none"
+	result := strings.ReplaceAll(buf.String(), "<no value>", "none")
+	return result
 }
