@@ -16,14 +16,17 @@ type Settings struct {
 	APIKey                 string        // Required, Datadog API key
 	AppKey                 string        // Required, Datadog application key
 	Site                   string        // Datadog site (e.g., datadoghq.com). Used to build https://api.{Site}
-	DashboardsDir          string        // Where dashboard JSON files are stored
-	DashboardsPathTemplate string        // Path template for dashboard full path, defaults to "{DASHBOARDS_DIR}/{id}.json"
+	DataDir                string        // Base data directory for all resources (default: data/)
+	DashboardsPathTemplate string        // Path template for dashboard full path, defaults to "{DATA_DIR}/dashboards/{id}.json"
+	MonitorsPathTemplate   string        // Path template for monitor full path, defaults to "{DATA_DIR}/monitors/{id}.json"
 	HTTPTimeout            time.Duration // HTTP client timeout, defaults to 60 seconds
+	HTTPMaxBodySize        int64         // Maximum allowed API response body size in bytes, defaults to 10MB
+	PageSize               int           // Number of results per page for list endpoints, defaults to 1000
 }
 
 // LoadSettings loads configuration from environment variables and optional .env file.
 // Required environment variables: DD_API_KEY, DD_APP_KEY.
-// Optional variables: DD_SITE, DASHBOARDS_DIR, DASHBOARDS_PATH_TEMPLATE, HTTP_TIMEOUT.
+// Optional variables: DD_SITE, DATA_DIR, DASHBOARDS_PATH_TEMPLATE, MONITORS_PATH_TEMPLATE, HTTP_TIMEOUT, HTTP_MAX_BODY_SIZE, PAGE_SIZE.
 func LoadSettings() (*Settings, error) {
 	// If .env exists, try to load it
 	if _, err := os.Stat(".env"); err == nil {
@@ -43,24 +46,30 @@ func LoadSettings() (*Settings, error) {
 	}
 
 	site := getEnv("DD_SITE", "datadoghq.com")
-	// Normalize common misconfigurations: allow users to set DD_SITE with or without a leading "api.".
-	// We always build URLs as https://api.{Site}, so strip any leading "api." to avoid api.api.*.
 	site = strings.TrimSpace(strings.ToLower(site))
-	site = strings.TrimPrefix(site, "api.")
+	if strings.HasPrefix(site, "api.") {
+		fmt.Fprintf(os.Stderr, "Warning: DD_SITE value \"%s\" should not have prefix 'api.', removing\n", site)
+		site = strings.TrimPrefix(site, "api.")
+	}
 
-	dashboardsDir := getEnv("DASHBOARDS_DIR", "data/dashboards")
-	dashboardsPathTemplate := getEnv("DASHBOARDS_PATH_TEMPLATE", filepath.Join(dashboardsDir, "{id}.json"))
+	dataDir := getEnv("DATA_DIR", "data")
+	dashboardsPathTemplate := getEnv("DASHBOARDS_PATH_TEMPLATE", filepath.Join(dataDir, "dashboards", "{id}.json"))
+	monitorsPathTemplate := getEnv("MONITORS_PATH_TEMPLATE", filepath.Join(dataDir, "monitors", "{id}.json"))
 
-	// Parse HTTP timeout from environment (in seconds), default to 60
 	httpTimeout := time.Duration(getEnvInt("HTTP_TIMEOUT", 60)) * time.Second
+	HTTPMaxBodySize := int64(getEnvInt("HTTP_MAX_BODY_SIZE", 10*1024*1024)) // 10MB default
+	pageSize := getEnvInt("PAGE_SIZE", 1000)
 
 	return &Settings{
 		APIKey:                 apiKey,
 		AppKey:                 appKey,
 		Site:                   site,
-		DashboardsDir:          dashboardsDir,
+		DataDir:                dataDir,
 		DashboardsPathTemplate: dashboardsPathTemplate,
+		MonitorsPathTemplate:   monitorsPathTemplate,
 		HTTPTimeout:            httpTimeout,
+		HTTPMaxBodySize:        HTTPMaxBodySize,
+		PageSize:               pageSize,
 	}, nil
 }
 
