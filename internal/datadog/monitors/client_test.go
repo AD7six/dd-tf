@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/AD7six/dd-tf/internal/datadog/resource"
+	"github.com/AD7six/dd-tf/internal/datadog/templating"
 )
 
 func TestTranslateToTemplate(t *testing.T) {
@@ -63,9 +64,9 @@ func TestTranslateToTemplate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := translateToTemplate(tt.input)
+			result := templating.TranslatePlaceholders(tt.input, templating.BuildMonitorBuiltins())
 			if result != tt.expected {
-				t.Errorf("translateToTemplate(%q) = %q, want %q", tt.input, result, tt.expected)
+				t.Errorf("TranslatePlaceholders(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}

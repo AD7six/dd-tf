@@ -66,6 +66,27 @@ func TranslatePlaceholders(pattern string, builtins map[string]string) string {
 	return p
 }
 
+// BuildDashboardBuiltins returns the builtins map for dashboard path templates.
+func BuildDashboardBuiltins() map[string]string {
+	return map[string]string{
+		"{DATA_DIR}": "{{.DataDir}}",
+		"{id}":       "{{.ID}}",
+		"{title}":    "{{.Title}}",
+		"{name}":     "{{.Title}}", // Alias for consistency with monitors
+	}
+}
+
+// BuildMonitorBuiltins returns the builtins map for monitor path templates.
+func BuildMonitorBuiltins() map[string]string {
+	return map[string]string{
+		"{DATA_DIR}": "{{.DataDir}}",
+		"{id}":       "{{.ID}}",
+		"{name}":     "{{.Name}}",
+		"{title}":    "{{.Name}}", // Alias for consistency with dashboards
+		"{priority}": "{{.Priority}}",
+	}
+}
+
 // ExtractStaticPrefix returns the longest static prefix from a path template.
 // For example, "data/dashboards/{id}.json" returns "data/dashboards".
 // Environment variable placeholders (e.g., {MY_VAR}) and {DATA_DIR} are expanded before extraction.

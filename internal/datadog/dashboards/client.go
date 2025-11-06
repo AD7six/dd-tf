@@ -346,26 +346,6 @@ type dashboardTemplateData struct {
 	Tags    map[string]string
 }
 
-// translateToTemplate converts simpler convenience placeholders like
-//
-//	{DATA_DIR}, {id}, {title}, {team}
-//
-// into Go template expressions:
-//
-//	{{.DataDir}}, {{.ID}}, {{.Title}}, {{.Tags.team}}.
-//
-// Any unknown {unknown} will be translated to {{.Tags.unknown}} to support dynamic
-// tag-based placeholders.
-func translateToTemplate(p string) string {
-	builtin := map[string]string{
-		"{DATA_DIR}": "{{.DataDir}}",
-		"{id}":       "{{.ID}}",
-		"{title}":    "{{.Title}}",
-		"{name}":     "{{.Title}}", // Support {name} as an alias for {title} to provide consistency across different resources
-	}
-	return templating.TranslatePlaceholders(p, builtin)
-}
-
 // ComputeDashboardPath computes the file path from the configured pattern or outputPath override using Go templates.
 // Template variables:
 //
@@ -383,7 +363,7 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 
 	// Translate simple placeholders like {id} to Go template variables before
 	// rendering
-	pattern = translateToTemplate(pattern)
+	pattern = templating.TranslatePlaceholders(pattern, templating.BuildDashboardBuiltins())
 
 	// Extract and sanitize tags from dashboard
 	tagMap := templating.ExtractTagMap(dashboard["tags"], true)

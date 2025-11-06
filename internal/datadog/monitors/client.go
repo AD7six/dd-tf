@@ -39,20 +39,6 @@ type monitorTemplateData struct {
 	Priority int
 }
 
-// translateToTemplate converts placeholders like {DATA_DIR}, {id}, {name}, {team}
-// into Go template expressions: {{.DataDir}}, {{.ID}}, {{.Name}}, {{.Tags.team}}
-// Any unknown {unknown} maps to {{.Tags.unknown}}
-func translateToTemplate(p string) string {
-	builtin := map[string]string{
-		"{DATA_DIR}": "{{.DataDir}}",
-		"{id}":       "{{.ID}}",
-		"{name}":     "{{.Name}}",
-		"{title}":    "{{.Name}}", // Support {title} as an alias for {name} to provide consistency across different resources
-		"{priority}": "{{.Priority}}",
-	}
-	return templating.TranslatePlaceholders(p, builtin)
-}
-
 // GenerateMonitorTargets returns a channel that yields monitor IDs and target paths.
 // If filterTags or team is set, fetches all monitors and filters by tags/team/priority.
 func GenerateMonitorTargets(opts DownloadOptions) (<-chan MonitorTargetResult, error) {
@@ -235,7 +221,7 @@ func DownloadMonitorWithOptions(target MonitorTarget, outputPath string) error {
 		if pattern == "" {
 			pattern = settings.MonitorsPathTemplate
 		}
-		pattern = translateToTemplate(pattern)
+		pattern = templating.TranslatePlaceholders(pattern, templating.BuildMonitorBuiltins())
 
 		// Extract and sanitize data for templating
 		name := "untitled"
