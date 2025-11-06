@@ -388,6 +388,7 @@ func TestLoadSettings(t *testing.T) {
 			MonitorsPathTemplate:   "data/monitors/{id}.json",
 			HTTPTimeout:            60 * time.Second,
 			HTTPMaxBodySize:        10 * 1024 * 1024, // 10MB
+			PageSize:               1000,
 		}
 
 		if !reflect.DeepEqual(got, want) {
