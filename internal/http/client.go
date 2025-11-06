@@ -3,14 +3,28 @@ package http
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/AD7six/dd-tf/internal/config"
 )
+
+// Sleeper abstracts time.Sleep for testing.
+type Sleeper interface {
+	Sleep(d time.Duration)
+}
+
+// realSleeper uses actual time.Sleep.
+type realSleeper struct{}
+
+func (realSleeper) Sleep(d time.Duration) {
+	time.Sleep(d)
+}
 
 // DatadogHTTPClient wraps an HTTP client with Datadog API credentials, a concurrency limiter,
 // and coordinated retry/pausing on 429s.
@@ -31,6 +45,9 @@ type DatadogHTTPClient struct {
 	// continuing to make requests we know will fail.
 	pause      sync.Mutex
 	pauseUntil time.Time
+
+	// sleeper allows injecting a fake sleep for testing
+	sleeper Sleeper
 }
 
 const (
@@ -71,6 +88,7 @@ func newClient(apiKey, appKey string, maxConcurrent, retries int, timeout time.D
 		UnderlyingHTTP: &http.Client{Timeout: timeout},
 		sem:            make(chan struct{}, maxConcurrent),
 		retries:        retries,
+		sleeper:        realSleeper{},
 	}
 }
 
@@ -99,11 +117,16 @@ func (c *DatadogHTTPClient) GetWithContext(ctx context.Context, url string) (*ht
 		req.Header.Set("DD-API-KEY", c.APIKey)
 		req.Header.Set("DD-APPLICATION-KEY", c.AppKey)
 
+		// Log curl command if DEBUG env var is set
+		if os.Getenv("DEBUG") != "" {
+			c.logCurlCommand(req)
+		}
+
 		resp, err := c.UnderlyingHTTP.Do(req)
 		if err != nil {
 			lastErr = err
 			if attempt < c.retries {
-				time.Sleep(backoffDuration(attempt))
+				c.sleeper.Sleep(backoffDuration(attempt))
 				continue
 			}
 			return nil, lastErr
@@ -123,7 +146,7 @@ func (c *DatadogHTTPClient) GetWithContext(ctx context.Context, url string) (*ht
 
 			if attempt < c.retries {
 				// Sleep the same period locally before retrying this request
-				time.Sleep(wait)
+				c.sleeper.Sleep(wait)
 				continue
 			}
 			return nil, &rateLimitedError{after: wait}
@@ -135,7 +158,7 @@ func (c *DatadogHTTPClient) GetWithContext(ctx context.Context, url string) (*ht
 				if err := resp.Body.Close(); err != nil {
 					fmt.Fprintf(os.Stderr, "Warning: failed to close response body: %v\n", err)
 				}
-				time.Sleep(backoffDuration(attempt))
+				c.sleeper.Sleep(backoffDuration(attempt))
 				continue
 			}
 			// return last response to caller for error handling
@@ -162,15 +185,18 @@ func backoffDuration(attempt int) time.Duration {
 }
 
 func (c *DatadogHTTPClient) waitIfPaused() {
-	for {
-		c.pause.Lock()
-		now := time.Now()
-		until := c.pauseUntil
-		c.pause.Unlock()
-		if until.IsZero() || now.After(until) || now.Equal(until) {
-			return
-		}
-		time.Sleep(time.Until(until))
+	c.pause.Lock()
+	now := time.Now()
+	until := c.pauseUntil
+	c.pause.Unlock()
+
+	if until.IsZero() || now.After(until) || now.Equal(until) {
+		return
+	}
+
+	duration := until.Sub(now)
+	if duration > 0 {
+		c.sleeper.Sleep(duration)
 	}
 }
 
@@ -206,4 +232,25 @@ type rateLimitedError struct {
 
 func (e *rateLimitedError) Error() string {
 	return fmt.Sprintf("rate limited by server (retry after %v)", e.after)
+}
+
+// logCurlCommand logs the equivalent curl command for a request formatted for
+// copy-paste reuse and readability. Since we're only currently doing GET
+// requests, we omit the -X flag.
+func (c *DatadogHTTPClient) logCurlCommand(req *http.Request) {
+	var parts []string
+	parts = append(parts, "curl")
+
+	for key, values := range req.Header {
+		for _, value := range values {
+			if key == "Dd-Api-Key" || key == "Dd-Application-Key" {
+				value = strings.Repeat("*", 8)
+			}
+			parts = append(parts, fmt.Sprintf("-H %q", fmt.Sprintf("%s: %s", key, value)))
+		}
+	}
+
+	parts = append(parts, fmt.Sprintf("%q", req.URL.String()))
+
+	log.Printf("[DEBUG] %s\n", strings.Join(parts, " \\\n\t"))
 }
