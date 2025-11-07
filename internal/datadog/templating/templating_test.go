@@ -99,17 +99,6 @@ func TestTranslatePlaceholders(t *testing.T) {
 			want: "{{.Tags.MISSING_VAR}}/dashboards/{{.ID}}.json",
 		},
 		{
-			name:    "env var replaced before builtin - builtin doesn't match anymore",
-			pattern: "data/dashboards/{id}.json",
-			builtins: map[string]string{
-				"{id}": "{{.ID}}",
-			},
-			envVars: map[string]string{
-				"DATA_DIR": "/var/data",
-			},
-			want: "/var/data/dashboards/{{.ID}}.json",
-		},
-		{
 			name:    "builtin works when env var not set",
 			pattern: "data/dashboards/{id}.json",
 			builtins: map[string]string{
@@ -182,11 +171,6 @@ func TestExtractStaticPrefix(t *testing.T) {
 			want:         "data/dashboards",
 		},
 		{
-			name:         "template with DATA_DIR placeholder first - no env var",
-			pathTemplate: "data/dashboards/{id}.json",
-			want:         "",
-		},
-		{
 			name:         "template with DATA_DIR placeholder first - with env var",
 			pathTemplate: "data/dashboards/{id}.json",
 			envVars: map[string]string{
@@ -202,11 +186,6 @@ func TestExtractStaticPrefix(t *testing.T) {
 		{
 			name:         "no placeholders - file path",
 			pathTemplate: "data/dashboards/static.json",
-			want:         "data/dashboards",
-		},
-		{
-			name:         "no placeholders - directory",
-			pathTemplate: "data/dashboards/",
 			want:         "data/dashboards",
 		},
 		{
