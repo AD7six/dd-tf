@@ -12,7 +12,7 @@ bin/dd-tf dashboards download [flags]
 
 - `--id` string: Dashboard ID(s) to download (comma-separated). The ID is visible in the Datadog URL: `https://app.datadoghq.com/dash/<id>`.
 - `--all`: Download all dashboards.
-- `--update`: Update already-downloaded dashboards by scanning existing JSON files under `data/dashboards` and re-downloading by `id`.
+- `--update`: Update already-downloaded dashboards by scanning existing JSON files and re-downloading by `id`.
 - `--team` string: Filter by team (convenience for tag `team:x`).
 - `--tags` string: Comma-separated list of tags to filter dashboards.
 - `--output` string: Output path template (supports `data`, `{id}`, `{title}`, `{team}`, and any tag key placeholder like `{env}`).

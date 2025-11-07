@@ -12,7 +12,7 @@ bin/dd-tf monitors download [flags]
 
 - `--id` string: Monitor ID(s) to download (comma-separated integers).
 - `--all`: Download all monitors.
-- `--update`: Update already-downloaded monitors by scanning existing JSON files under `data/monitors` and re-downloading by `id`.
+- `--update`: Update already-downloaded monitors by scanning existing JSON files and re-downloading by `id`.
 - `--team` string: Filter by team (convenience for tag `team:x`).
 - `--tags` string: Comma-separated list of tags to filter monitors.
 - `--priority` int: Filter by monitor priority.
