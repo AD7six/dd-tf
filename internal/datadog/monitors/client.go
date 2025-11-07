@@ -225,8 +225,12 @@ func DownloadMonitorWithOptions(target MonitorTarget, outputPath string) error {
 			Priority: prio,
 		}
 
-		// Compute path from template with fallback of id.json in the current directory
-		targetPath = templating.ComputePathFromTemplate(pattern, data, fmt.Sprintf("%d.json", target.ID))
+		// Compute path from template
+		var err error
+		targetPath, err = templating.ComputePathFromTemplate(pattern, data)
+		if err != nil {
+			return err
+		}
 	}
 	if err := storage.WriteJSONFile(targetPath, result); err != nil {
 		return err

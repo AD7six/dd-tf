@@ -305,7 +305,11 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 	// Compute path if not provided (--update uses existing path)
 	targetPath := target.Path
 	if targetPath == "" {
-		targetPath = ComputeDashboardPath(settings, result, outputPath)
+		var err error
+		targetPath, err = ComputeDashboardPath(settings, result, outputPath)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Write JSON file
@@ -332,7 +336,7 @@ type dashboardTemplateData struct {
 //	{{.Title}} - sanitized dashboard title
 //	{{.Tags.team}} - value of "team" tag (empty if not found)
 //	{{.Tags.x}} - value of "x" tag (empty if not found)
-func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, outputPath string) string {
+func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, outputPath string) (string, error) {
 	// Use outputPath override if provided, otherwise use setting
 	pattern := outputPath
 	if pattern == "" {
@@ -349,9 +353,7 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 	// Extract ID - required field
 	id, ok := dashboard["id"].(string)
 	if !ok || id == "" {
-		// Fallback: use a placeholder if ID is missing
-		fmt.Fprintf(os.Stderr, "Warning: dashboard missing valid 'id' field, using placeholder\n")
-		id = "unknown-id"
+		return "", fmt.Errorf("dashboard missing valid 'id' field")
 	}
 
 	// Extract title - use placeholder if missing
@@ -368,6 +370,6 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 		Tags:  tagMap,
 	}
 
-	// Compute path from template with fallback of id.json in the current directory
-	return templating.ComputePathFromTemplate(pattern, data, id+".json")
+	// Compute path from template
+	return templating.ComputePathFromTemplate(pattern, data)
 }
