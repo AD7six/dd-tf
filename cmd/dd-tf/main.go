@@ -1,9 +1,6 @@
 package main
 
 import (
-	"os"
-
-	"github.com/AD7six/dd-tf/internal/commands/config"
 	"github.com/AD7six/dd-tf/internal/commands/dashboards"
 	"github.com/AD7six/dd-tf/internal/commands/monitors"
 	"github.com/AD7six/dd-tf/internal/commands/version"
@@ -19,15 +16,14 @@ func main() {
 		Short: "Datadog Terraform management CLI",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if verbose {
-				os.Setenv("DEBUG", "1")
-				logging.ReinitLogger()
+				logging.InitLogger("debug")
 			}
+			logging.Logger.Debug("Verbose logging enabled")
 		},
 	}
 
 	root.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose/debug output (shows curl commands)")
 
-	root.AddCommand(config.NewConfigCmd())
 	root.AddCommand(dashboards.NewDashboardsCmd())
 	root.AddCommand(monitors.NewMonitorsCmd())
 	root.AddCommand(version.NewVersionCmd())
