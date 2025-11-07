@@ -44,7 +44,6 @@ Default: `data/dashboards/{id}.json`
 
 Placeholders:
 
-- `data`
 - `{id}`
 - `{title}`
 - `{team}`

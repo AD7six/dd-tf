@@ -45,7 +45,6 @@ Default: `data/monitors/{id}.json`
 
 Placeholders:
 
-- `data`
 - `{id}`
 - `{name}`
 - `{team}`

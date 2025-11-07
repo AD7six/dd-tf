@@ -63,16 +63,52 @@ Optional:
 - `MONITORS_PATH_TEMPLATE` – monitor path pattern (default: `$DATA_DIR/monitors/{id}.json`)
 - `HTTP_TIMEOUT` – HTTP client timeout in seconds (default: `60`)
 
+A `.env` file can be created by running `make .env`
+
 `.env` example:
 
-```dotenv
-DD_API_KEY=your_api_key
-DD_APP_KEY=your_app_key
-# DD_SITE=datadoghq.eu # or us3.datadoghq.com, etc. 
-# DATA_DIR=/my/datadog/account/data/is/here
-# DASHBOARDS_PATH_TEMPLATE=data/dashboards/{team}/{title}-{id}.json
-# MONITORS_PATH_TEMPLATE=data/monitors/{team}/{name}-{id}.json
-# HTTP_TIMEOUT=60
+```shell
+❯ make .env
+Creating .env file...
+Enter your Datadog API key: my api key
+Enter your Datadog Application key: my app key
+
+✓ .env file created successfully!
+You can now edit .env to customize optional settings.
+❯ cat .env
+# Generated on Fri Nov  7 12:17:49 CET 2025
+
+## Required
+# Datadog API key: https://app.datadoghq.eu/organization-settings/api-keys
+DD_API_KEY=my api key
+
+# Datadog Application key: https://app.datadoghq.eu/organization-settings/application-keys
+DD_APP_KEY=my app key
+
+## Optional - defaults
+
+# Datadog site (default: datadoghq.com)
+#DD_SITE=datadoghq.com
+
+# Base data directory (default: data)
+#DATA_DIR=data
+
+# Path templates for resources
+# Use $DATA_DIR to reference the data directory
+# Use {id}, {title}, {name}, {team}, {priority} for resource-specific placeholders
+# Use {ANY_ENV_VAR} (uppercase) to reference environment variables
+# Use {any_tag} to reference any tag value
+#DASHBOARDS_PATH_TEMPLATE=$DATA_DIR/dashboards/{id}.json
+#MONITORS_PATH_TEMPLATE=$DATA_DIR/monitors/{id}.json
+
+# HTTP client timeout in seconds (default: 60)
+#HTTP_TIMEOUT=60
+
+# Maximum response body size in bytes (default: 10485760 = 10MB)
+#HTTP_MAX_BODY_SIZE=10485760
+
+# Page size for paginated API requests (default: 1000)
+#PAGE_SIZE=1000
 ```
 
 ## Path templating
