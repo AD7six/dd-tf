@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -184,9 +183,6 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 			defer close(out)
 			// Extract the static directory prefix from the path template
 			dashboardsDir := templating.ExtractStaticPrefix(settings.DashboardsPathTemplate)
-			if dashboardsDir == "" {
-				dashboardsDir = filepath.Join("data", "dashboards")
-			}
 			idToPath, err := storage.ExtractIDsFromJSONFiles(dashboardsDir)
 			if err != nil {
 				out <- DashboardTargetResult{Err: fmt.Errorf("failed to scan directory: %w", err)}
@@ -372,7 +368,6 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 		Tags:  tagMap,
 	}
 
-	// Compute path from template with fallback
-	fallbackPath := filepath.Join("data", "dashboards", id+".json")
-	return templating.ComputePathFromTemplate(pattern, data, fallbackPath)
+	// Compute path from template with fallback of id.json in the current directory
+	return templating.ComputePathFromTemplate(pattern, data, id+".json")
 }
