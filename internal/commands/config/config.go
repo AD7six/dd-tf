@@ -7,6 +7,7 @@ import (
 
 	internalconfig "github.com/AD7six/dd-tf/internal/config"
 	"github.com/AD7six/dd-tf/internal/utils"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -38,7 +39,7 @@ func displaySettings(s *internalconfig.Settings) {
 	maxKeyLen := 10
 
 	// Parse defaults.env first
-	defaults, err := utils.ParseEnvFile("internal/config/defaults.env")
+	defaults, err := godotenv.Read("internal/config/defaults.env")
 	if err != nil {
 		defaults = make(map[string]string)
 	}
