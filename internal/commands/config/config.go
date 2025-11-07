@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/AD7six/dd-tf/internal/config"
@@ -96,13 +97,9 @@ func displaySettings(s *internalconfig.Settings) {
 	}
 
 	// Sort CLI options alphabetically
-	for i := 0; i < len(cliOptions); i++ {
-		for j := i + 1; j < len(cliOptions); j++ {
-			if strings.ToLower(cliOptions[i].key) > strings.ToLower(cliOptions[j].key) {
-				cliOptions[i], cliOptions[j] = cliOptions[j], cliOptions[i]
-			}
-		}
-	}
+	sort.Slice(cliOptions, func(i, j int) bool {
+		return strings.ToLower(cliOptions[i].key) < strings.ToLower(cliOptions[j].key)
+	})
 
 	// Print CLI Options section
 	fmt.Printf("# CLI Options:\n")
