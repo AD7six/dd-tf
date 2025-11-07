@@ -171,10 +171,10 @@ func TestExtractStaticPrefix(t *testing.T) {
 			want:         "data/dashboards",
 		},
 		{
-			name:         "template with DATA_DIR placeholder first - with env var",
-			pathTemplate: "data/dashboards/{id}.json",
+			name:         "template with SOME_ENV_DIR placeholder first - with env var",
+			pathTemplate: "{SOME_ENV_DIR}/dashboards/{id}.json",
 			envVars: map[string]string{
-				"DATA_DIR": "/opt/data",
+				"SOME_ENV_DIR": "/opt/data",
 			},
 			want: "/opt/data/dashboards",
 		},

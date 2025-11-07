@@ -100,11 +100,6 @@ func ExtractStaticPrefix(pathTemplate string) string {
 	// First, expand environment variable placeholders
 	expanded := replaceEnvVars(pathTemplate)
 
-	// Also handle data placeholder by replacing with DATA_DIR env var if set
-	if dataDir := os.Getenv("DATA_DIR"); dataDir != "" {
-		expanded = strings.ReplaceAll(expanded, "data", dataDir)
-	}
-
 	// Find the first remaining placeholder
 	idx := strings.Index(expanded, "{")
 	if idx == -1 {
