@@ -75,7 +75,7 @@ func runDownload(allFlag, updateFlag bool, outputPath, team, tags, dashboardID s
 		}
 
 		target := result.Target // capture
-		fmt.Printf("Downloading dashboard with ID: %s\n", target.ID)
+		logging.Logger.Info("downloading dashboard", "id", target.ID)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()

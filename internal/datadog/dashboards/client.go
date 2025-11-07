@@ -318,7 +318,7 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 		return err
 	}
 
-	fmt.Printf("Dashboard saved to %s\n", targetPath)
+	logging.Logger.Info("dashboard saved", "path", targetPath)
 	return nil
 }
 

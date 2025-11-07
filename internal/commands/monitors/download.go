@@ -78,7 +78,7 @@ func runDownload(allFlag, updateFlag bool, outputPath, team, tags, monitorID str
 		}
 
 		target := result.Target // capture
-		fmt.Printf("Downloading monitor with ID: %d\n", target.ID)
+		logging.Logger.Info("downloading monitor", "id", target.ID)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
