@@ -217,7 +217,8 @@ func parseRetryAfter(resp *http.Response) time.Duration {
 		if secs, err := strconv.Atoi(ra); err == nil && secs >= 0 {
 			return time.Duration(secs) * time.Second
 		}
-		// Could be a HTTP date; ignore for simplicity
+		// Assume it's an int, ignore possibility of being a http date for
+		// simplicity
 	}
 	return time.Second
 }
