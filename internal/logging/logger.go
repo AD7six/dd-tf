@@ -3,6 +3,7 @@ package logging
 import (
 	"log/slog"
 	"os"
+	"strings"
 )
 
 // Logger is the global logger instance used throughout the application.
@@ -22,20 +23,34 @@ func InitLogger(logLevel string) {
 		}
 	}
 
+	logLevel = strings.ToLower(logLevel)
+
+	// Default to info level logs
 	level := slog.LevelInfo
 
-	switch logLevel {
-	case "debug":
-		level = slog.LevelDebug
-	case "info":
-		level = slog.LevelInfo
-	case "warn":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
+	// Override if debug, warning or error logs are requested
+	if len(logLevel) > 0 {
+		switch logLevel[0] {
+		case 'd':
+			level = slog.LevelDebug
+		case 'w':
+			level = slog.LevelWarn
+		case 'e':
+			level = slog.LevelError
+		}
 	}
 
-	Logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: level,
-	}))
+	// Select handler based on LOG_FORMAT
+	format := os.Getenv("LOG_FORMAT") // supported: "json", "text" (default)
+
+	var handler slog.Handler
+	switch strings.ToLower(format) {
+
+	case "json":
+		handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level})
+	default:
+		handler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})
+	}
+
+	Logger = slog.New(handler)
 }
