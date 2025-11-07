@@ -2,7 +2,8 @@ package config
 
 import (
 	"fmt"
-	"os"
+	"reflect"
+	"strings"
 
 	internalconfig "github.com/AD7six/dd-tf/internal/config"
 	"github.com/spf13/cobra"
@@ -28,30 +29,59 @@ func NewConfigCmd() *cobra.Command {
 	return cmd
 }
 
-// displaySettings prints each config as "ENV_VAR: value" matching names from defaults.env
+// Then loop with reflection:
 func displaySettings(s *internalconfig.Settings) {
-	// Required
-	fmt.Printf("DD_API_KEY: %s\n", maskSecret(s.APIKey))
-	fmt.Printf("DD_APP_KEY: %s\n", maskSecret(s.AppKey))
+	v := reflect.ValueOf(*s)
+	t := reflect.TypeOf(*s)
 
-	// Optional (match defaults.env variable names and value forms)
-	fmt.Printf("DD_SITE: %s\n", s.Site)
-	dataDir := os.Getenv("DATA_DIR")
-	if dataDir == "" {
-		dataDir = "data"
+	// Find max key length for alignment (including colon)
+	maxKeyLen := 0
+	ddKeys := []string{"DD_API_KEY:", "DD_APP_KEY:", "DD_SITE:"}
+	for _, key := range ddKeys {
+		if len(key) > maxKeyLen {
+			maxKeyLen = len(key)
+		}
 	}
-	fmt.Printf("DATA_DIR: %s\n", dataDir)
-	fmt.Printf("DASHBOARDS_PATH_TEMPLATE: %s\n", s.DashboardsPathTemplate)
-	fmt.Printf("MONITORS_PATH_TEMPLATE: %s\n", s.MonitorsPathTemplate)
-	// HTTP_TIMEOUT is defined as seconds in defaults.env, convert duration to whole seconds
-	fmt.Printf("HTTP_TIMEOUT: %d\n", int(s.HTTPTimeout.Seconds()))
-	fmt.Printf("HTTP_MAX_BODY_SIZE: %d\n", s.HTTPMaxBodySize)
+
+	for i := 0; i < v.NumField(); i++ {
+		envName := t.Field(i).Tag.Get("env")
+		if !strings.HasPrefix(envName, "DD_") {
+			keyWithColon := envName + ":"
+			if len(keyWithColon) > maxKeyLen {
+				maxKeyLen = len(keyWithColon)
+			}
+		}
+	}
+
+	fmt.Printf("# Datadog account:\n")
+	fmt.Printf("%-*s  %s\n", maxKeyLen, "DD_API_KEY:", maskSecret(s.APIKey))
+	fmt.Printf("%-*s  %s\n", maxKeyLen, "DD_APP_KEY:", maskSecret(s.AppKey))
+	fmt.Printf("%-*s  %s\n", maxKeyLen, "DD_SITE:", s.Site)
+	fmt.Printf("\n")
+
+	fmt.Printf("# CLI Options:\n")
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		value := v.Field(i)
+		envName := field.Tag.Get("env")
+
+		if strings.HasPrefix(envName, "DD_") {
+			continue
+		}
+
+		fmt.Printf("%-*s  %v\n", maxKeyLen, envName+":", value.Interface())
+	}
 }
 
-// maskSecret masks all but the last 4 characters of a secret.
+// maskSecret masks all but the first 2 and last 2 characters of a secret.
 func maskSecret(secret string) string {
 	if len(secret) <= 4 {
 		return "****"
 	}
-	return "****" + secret[len(secret)-4:]
+	masked := secret[:2]
+	for i := 2; i < len(secret)-2; i++ {
+		masked += "*"
+	}
+	masked += secret[len(secret)-2:]
+	return masked
 }

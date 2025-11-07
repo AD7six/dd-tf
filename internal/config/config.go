@@ -17,14 +17,14 @@ var embeddedDefaults string
 
 // Settings contains configuration for the Datadog API client and dashboard management.
 type Settings struct {
-	APIKey                 string        // Required, Datadog API key
-	AppKey                 string        // Required, Datadog application key
-	Site                   string        // Datadog site (e.g., datadoghq.com). Used to build https://api.{Site}
-	DashboardsPathTemplate string        // Path template for dashboard full path, defaults to "{DATA_DIR}/dashboards/{id}.json"
-	MonitorsPathTemplate   string        // Path template for monitor full path, defaults to "{DATA_DIR}/monitors/{id}.json"
-	HTTPTimeout            time.Duration // HTTP client timeout, defaults to 60 seconds
-	HTTPMaxBodySize        int64         // Maximum allowed API response body size in bytes, defaults to 10MB
-	PageSize               int           // Number of results per page for list endpoints, defaults to 1000
+	APIKey                 string        `env:"DD_API_KEY"`               // Required, Datadog API key
+	AppKey                 string        `env:"DD_APP_KEY"`               // Required, Datadog application key
+	Site                   string        `env:"DD_SITE"`                  // Datadog site (e.g., datadoghq.com). Used to build https://api.{Site}
+	DashboardsPathTemplate string        `env:"DASHBOARDS_PATH_TEMPLATE"` // Path template for dashboard full path, defaults to "{DATA_DIR}/dashboards/{id}.json"
+	MonitorsPathTemplate   string        `env:"MONITORS_PATH_TEMPLATE"`   // Path template for monitor full path, defaults to "{DATA_DIR}/monitors/{id}.json"
+	HTTPTimeout            time.Duration `env:"HTTP_TIMEOUT"`             // HTTP client timeout, defaults to 60 seconds
+	HTTPMaxBodySize        int64         `env:"HTTP_MAX_BODY_SIZE"`       // Maximum allowed API response body size in bytes, defaults to 10MB
+	PageSize               int           `env:"PAGE_SIZE"`                // Number of results per page for index endpoints, defaults to 1000
 }
 
 // LoadSettings loads configuration from environment variables and optional .env files.
