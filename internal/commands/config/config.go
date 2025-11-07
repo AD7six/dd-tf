@@ -30,37 +30,51 @@ func NewConfigCmd() *cobra.Command {
 	return cmd
 }
 
-// Then loop with reflection:
 func displaySettings(s *internalconfig.Settings) {
 	v := reflect.ValueOf(*s)
 	t := reflect.TypeOf(*s)
 
-	// Find max key length for alignment (including colon)
-	maxKeyLen := 0
-	ddKeys := []string{"DD_API_KEY:", "DD_APP_KEY:", "DD_SITE:"}
-	for _, key := range ddKeys {
-		if len(key) > maxKeyLen {
-			maxKeyLen = len(key)
-		}
+	// Initialize maxKeyLen to the longest DD_ key (DD_APP_KEY = 10 chars)
+	maxKeyLen := 10
+
+	// Parse defaults.env first
+	defaults, err := utils.ParseEnvFile("internal/config/defaults.env")
+	if err != nil {
+		defaults = make(map[string]string)
 	}
 
+	// Track which keys we've seen from Settings struct
+	seen := make(map[string]struct{})
+
+	// Collect all keys to determine maxKeyLen
 	for i := 0; i < v.NumField(); i++ {
 		envName := t.Field(i).Tag.Get("env")
-		if !strings.HasPrefix(envName, "DD_") {
-			keyWithColon := envName + ":"
-			if len(keyWithColon) > maxKeyLen {
-				maxKeyLen = len(keyWithColon)
-			}
+		seen[envName] = struct{}{}
+		if len(envName) > maxKeyLen {
+			maxKeyLen = len(envName)
 		}
 	}
 
+	// Include keys from defaults.env in maxKeyLen calculation
+	for k := range defaults {
+		if len(k) > maxKeyLen {
+			maxKeyLen = len(k)
+		}
+	}
+
+	// Print Datadog account section
 	fmt.Printf("# Datadog account:\n")
-	fmt.Printf("%-*s  %s\n", maxKeyLen, "DD_API_KEY:", utils.MaskSecret(s.APIKey))
-	fmt.Printf("%-*s  %s\n", maxKeyLen, "DD_APP_KEY:", utils.MaskSecret(s.AppKey))
-	fmt.Printf("%-*s  %s\n", maxKeyLen, "DD_SITE:", s.Site)
+	fmt.Printf("%-*s:  %s\n", maxKeyLen, "DD_API_KEY", utils.MaskSecret(s.APIKey))
+	fmt.Printf("%-*s:  %s\n", maxKeyLen, "DD_APP_KEY", utils.MaskSecret(s.AppKey))
+	fmt.Printf("%-*s:  %s\n", maxKeyLen, "DD_SITE", s.Site)
 	fmt.Printf("\n")
 
-	fmt.Printf("# CLI Options:\n")
+	// Collect CLI options from Settings (non-DD_ keys)
+	type kv struct {
+		key   string
+		value any
+	}
+	var cliOptions []kv
 	for i := 0; i < v.NumField(); i++ {
 		field := t.Field(i)
 		value := v.Field(i)
@@ -70,6 +84,28 @@ func displaySettings(s *internalconfig.Settings) {
 			continue
 		}
 
-		fmt.Printf("%-*s  %v\n", maxKeyLen, envName+":", value.Interface())
+		cliOptions = append(cliOptions, kv{key: envName, value: value.Interface()})
+	}
+
+	// Add anything else from defaults.env not in Settings
+	for k, v := range defaults {
+		if _, already := seen[k]; !already {
+			cliOptions = append(cliOptions, kv{key: k, value: v})
+		}
+	}
+
+	// Sort CLI options alphabetically
+	for i := 0; i < len(cliOptions); i++ {
+		for j := i + 1; j < len(cliOptions); j++ {
+			if strings.ToLower(cliOptions[i].key) > strings.ToLower(cliOptions[j].key) {
+				cliOptions[i], cliOptions[j] = cliOptions[j], cliOptions[i]
+			}
+		}
+	}
+
+	// Print CLI Options section
+	fmt.Printf("# CLI Options:\n")
+	for _, opt := range cliOptions {
+		fmt.Printf("%-*s:  %v\n", maxKeyLen, opt.key, opt.value)
 	}
 }
