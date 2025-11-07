@@ -49,6 +49,20 @@
             "envFile": "${workspaceFolder}/.env",
             "showLog": false,
             "trace": "verbose"
+        },
+        {
+            "name": "Runtime config",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/dd-tf",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "config",
+            ],
+            "envFile": "${workspaceFolder}/.env",
+            "showLog": false,
+            "trace": "verbose"
         }
     ]
 }
