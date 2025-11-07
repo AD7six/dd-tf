@@ -78,10 +78,5 @@ func maskSecret(secret string) string {
 	if len(secret) <= 4 {
 		return "****"
 	}
-	masked := secret[:2]
-	for i := 2; i < len(secret)-2; i++ {
-		masked += "*"
-	}
-	masked += secret[len(secret)-2:]
-	return masked
+	return secret[:2] + strings.Repeat("*", len(secret)-4) + secret[len(secret)-2:]
 }
