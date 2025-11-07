@@ -17,8 +17,10 @@ func init() {
 
 // initLogger initializes the global logger with appropriate settings.
 // Log level is controlled by LOG_LEVEL environment variable (debug, info, warn, error).
-// If LOG_LEVEL is not set, defaults to info level.
-// InitLogger initializes global Logger based on provided or env log level & format.
+// If LOG_LEVEL is not set (shouldn't be possible since it's in defaults.env),
+// defaults to info level.
+// Also supports LOG_FORMAT environment variable to choose between "text",
+// "json", or "color"output.
 func InitLogger(logLevel string) {
 	if logLevel == "" {
 		if logLevel = os.Getenv("LOG_LEVEL"); logLevel == "" {
