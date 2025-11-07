@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// ParseEnvFile parses a .env or defaults.env file and returns a map of key-value pairs.
+// ParseEnvFile parses a .env file and returns a map of key-value pairs.
 func ParseEnvFile(path string) (map[string]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
