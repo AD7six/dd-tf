@@ -7,6 +7,7 @@ import (
 	"github.com/AD7six/dd-tf/internal/commands/dashboards"
 	"github.com/AD7six/dd-tf/internal/commands/monitors"
 	"github.com/AD7six/dd-tf/internal/commands/version"
+	"github.com/AD7six/dd-tf/internal/logging"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +20,7 @@ func main() {
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if verbose {
 				os.Setenv("DEBUG", "1")
+				logging.ReinitLogger()
 			}
 		},
 	}
