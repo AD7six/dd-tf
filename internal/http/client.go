@@ -231,8 +231,8 @@ func (e *rateLimitedError) Error() string {
 }
 
 // logCurlCommand logs the equivalent curl command for a request formatted for
-// copy-paste reuse and readability. Since we're only currently doing GET
-// requests, we omit the -X flag.
+// copy-paste reuse and readability. Only handles GET requests, but that's all
+// we're emitting currently so that's fine.
 func (c *DatadogHTTPClient) logCurlCommand(req *http.Request) {
 	var parts []string
 	parts = append(parts, "curl")
