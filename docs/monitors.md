@@ -16,7 +16,7 @@ bin/dd-tf monitors download [flags]
 - `--team` string: Filter by team (convenience for tag `team:x`).
 - `--tags` string: Comma-separated list of tags to filter monitors.
 - `--priority` int: Filter by monitor priority.
-- `--output` string: Output path template (supports `data`, `{id}`, `{name}`, `{team}`, `{priority}`, and any tag key placeholder like `{env}`).
+- `--output` string: Output path template (supports `{id}`, `{name}`, `{team}`, `{priority}`, and any `{tag}` or `{ENV_VAR}`).
 
 At least one of `--update`, `--all`, `--id`, `--team`, `--tags`, or `--priority` must be provided.
 

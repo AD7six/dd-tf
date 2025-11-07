@@ -15,7 +15,7 @@ bin/dd-tf dashboards download [flags]
 - `--update`: Update already-downloaded dashboards by scanning existing JSON files and re-downloading by `id`.
 - `--team` string: Filter by team (convenience for tag `team:x`).
 - `--tags` string: Comma-separated list of tags to filter dashboards.
-- `--output` string: Output path template (supports `data`, `{id}`, `{title}`, `{team}`, and any tag key placeholder like `{env}`).
+- `--output` string: Output path template (supports `{id}`, `{title}`, `{team}`, and any `{tag}` or `{ENV_VAR}`).
 
 At least one of `--update`, `--all`, `--id`, `--team`, or `--tags` must be provided.
 
