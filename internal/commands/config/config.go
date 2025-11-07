@@ -13,8 +13,8 @@ import (
 func NewConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
-		Short: "Show effective configuration",
-		Long:  "Shows the current configuration values as ENV_VAR: value pairs.",
+		Short: "Show runtime configuration",
+		Long:  "Shows the current configuration values, with defaults applied as ENV_VAR: value pairs.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			settings, err := internalconfig.LoadSettings()
 			if err != nil {
