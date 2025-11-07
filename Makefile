@@ -35,7 +35,7 @@ clean: ## Cleans the build artifacts
 	@echo "# Generated on $$(date)" > .env
 	@echo "" >> .env
 	@echo "## Required" >> .env
-	@echo "# Datadog API key: https://app.datadoghq.eu/organization-settings/api-keys" >> .env
+	@echo "# Datadog API key: https://app.datadoghq.com/organization-settings/api-keys" >> .env
 	@default_api_key=$${DD_API_KEY:-$${DATADOG_API_KEY:-}}; \
 	if [ -n "$$default_api_key" ]; then \
 		read -p "Enter your Datadog API key [$$default_api_key]: " api_key; \
@@ -45,7 +45,7 @@ clean: ## Cleans the build artifacts
 	fi; \
 	echo "DD_API_KEY=$$api_key" >> .env
 	@echo "" >> .env
-	@echo "# Datadog Application key: https://app.datadoghq.eu/organization-settings/application-keys" >> .env
+	@echo "# Datadog Application key: https://app.datadoghq.com/organization-settings/application-keys" >> .env
 	@default_app_key=$${DD_APP_KEY:-$${DATADOG_APP_KEY:-$${DD_APPLICATION_KEY:-}}}; \
 	if [ -n "$$default_app_key" ]; then \
 		read -p "Enter your Datadog Application key [$$default_app_key]: " app_key; \
