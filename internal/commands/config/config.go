@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	internalconfig "github.com/AD7six/dd-tf/internal/config"
+	"github.com/AD7six/dd-tf/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -54,8 +55,8 @@ func displaySettings(s *internalconfig.Settings) {
 	}
 
 	fmt.Printf("# Datadog account:\n")
-	fmt.Printf("%-*s  %s\n", maxKeyLen, "DD_API_KEY:", maskSecret(s.APIKey))
-	fmt.Printf("%-*s  %s\n", maxKeyLen, "DD_APP_KEY:", maskSecret(s.AppKey))
+	fmt.Printf("%-*s  %s\n", maxKeyLen, "DD_API_KEY:", utils.MaskSecret(s.APIKey))
+	fmt.Printf("%-*s  %s\n", maxKeyLen, "DD_APP_KEY:", utils.MaskSecret(s.AppKey))
 	fmt.Printf("%-*s  %s\n", maxKeyLen, "DD_SITE:", s.Site)
 	fmt.Printf("\n")
 
@@ -71,12 +72,4 @@ func displaySettings(s *internalconfig.Settings) {
 
 		fmt.Printf("%-*s  %v\n", maxKeyLen, envName+":", value.Interface())
 	}
-}
-
-// maskSecret masks all but the first 2 and last 2 characters of a secret.
-func maskSecret(secret string) string {
-	if len(secret) <= 4 {
-		return "****"
-	}
-	return secret[:2] + strings.Repeat("*", len(secret)-4) + secret[len(secret)-2:]
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/AD7six/dd-tf/internal/config"
 	"github.com/AD7six/dd-tf/internal/logging"
+	"github.com/AD7six/dd-tf/internal/utils"
 )
 
 // Sleeper abstracts time.Sleep for testing.
@@ -117,10 +117,7 @@ func (c *DatadogHTTPClient) GetWithContext(ctx context.Context, url string) (*ht
 		req.Header.Set("DD-API-KEY", c.APIKey)
 		req.Header.Set("DD-APPLICATION-KEY", c.AppKey)
 
-		// Log curl command if DEBUG env var is set
-		if os.Getenv("DEBUG") != "" {
-			c.logCurlCommand(req)
-		}
+		c.logCurlCommand(req)
 
 		resp, err := c.UnderlyingHTTP.Do(req)
 		if err != nil {
@@ -244,7 +241,7 @@ func (c *DatadogHTTPClient) logCurlCommand(req *http.Request) {
 	for key, values := range req.Header {
 		for _, value := range values {
 			if key == "Dd-Api-Key" || key == "Dd-Application-Key" {
-				value = strings.Repeat("*", 8)
+				value = utils.MaskSecret(value)
 			}
 			parts = append(parts, fmt.Sprintf("-H %q", fmt.Sprintf("%s: %s", key, value)))
 		}
