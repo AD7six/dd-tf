@@ -1,0 +1,8 @@
+version: "1.59"
+
+run:
+  timeout: 2m
+
+linters:
+  enable:
+    - govet

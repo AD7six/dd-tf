@@ -8,7 +8,7 @@ help: ## Lists help commands
 fmt: go-fmt tf-fmt ## Format code
 
 .PHONY: lint 
-lint: go-lint ## Lint code
+lint: go-lint ## Lint code (vet + golangci-lint)
 
 .PHONY: test
 test: ## Runs go tests
@@ -78,8 +78,15 @@ tf-fmt: # Terraform only format files
 go-fmt: # Go only, format files
 	@go fmt ./...
 
+
+# Install golangci-lint if not present (helper target)
+.PHONY: tools
+tools: # Install developer tools (golangci-lint)
+	@command -v golangci-lint >/dev/null 2>&1 || { echo "Installing golangci-lint"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.1; }
+
 .PHONY: go-lint
-go-lint: # Go only, lint files
-	@go vet ./...
+go-lint: tools # Run vet and golangci-lint
+	@echo "Running go vet" && go vet ./...
+	@echo "Running golangci-lint (govet only)" && golangci-lint run --disable-all -E govet ./...
 
 

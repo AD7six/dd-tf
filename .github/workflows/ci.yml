@@ -1,58 +1,78 @@
 name: CI
 
 on:
-    push:
-        branches: [main]
-    pull_request:
-        branches: [main]
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
-    contents: read
+  contents: read
 
 jobs:
-    format:
-        name: Format check
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  format:
+    name: Format check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Set up Go
-              uses: actions/setup-go@v5
-              with:
-                  go-version-file: go.mod
-                  cache: true
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
 
-            - name: Check Go formatting
-              run: |
-                  files=$(gofmt -l .)
-                  if [ -n "$files" ]; then
-                      echo "The following Go files are not formatted:" >&2
-                      echo "$files" >&2
-                      echo "Run 'go fmt ./...' locally to fix." >&2
-                      exit 1
-                  fi
+      - name: Check Go formatting
+        run: |
+          files=$(gofmt -l .)
+          if [ -n "$files" ]; then
+              echo "The following Go files are not formatted:" >&2
+              echo "$files" >&2
+              echo "Run 'go fmt ./...' locally to fix." >&2
+              exit 1
+          fi
 
-            - name: Set up Terraform
-              uses: hashicorp/setup-terraform@v3
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
 
-            - name: Check Terraform formatting
-              run: terraform fmt -check -recursive .
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive .
 
-    test:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Set up Go
-              uses: actions/setup-go@v5
-              with:
-                  go-version-file: go.mod
-                  cache: true
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
 
-            - name: Verify Go version
-              run: go version
+      - name: Verify Go version
+        run: go version
 
-            - name: Run tests
-              run: make test
+      - name: Run tests
+        run: make test
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Vet
+        run: go vet ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.59.1
+          args: --disable-all -E govet ./...
