@@ -11,7 +11,6 @@ import (
 
 	"github.com/AD7six/dd-tf/internal/config"
 	"github.com/AD7six/dd-tf/internal/logging"
-	"github.com/AD7six/dd-tf/internal/utils"
 )
 
 // Sleeper abstracts time.Sleep for testing.
@@ -240,8 +239,10 @@ func (c *DatadogHTTPClient) logCurlCommand(req *http.Request) {
 
 	for key, values := range req.Header {
 		for _, value := range values {
-			if key == "Dd-Api-Key" || key == "Dd-Application-Key" {
-				value = utils.MaskSecret(value)
+			if key == "Dd-Api-Key" {
+				value = "${DD_API_KEY}"
+			} else if key == "Dd-Application-Key" {
+				value = "${DD_APP_KEY}"
 			}
 			parts = append(parts, fmt.Sprintf("-H %q", fmt.Sprintf("%s: %s", key, value)))
 		}
@@ -249,5 +250,5 @@ func (c *DatadogHTTPClient) logCurlCommand(req *http.Request) {
 
 	parts = append(parts, fmt.Sprintf("%q", req.URL.String()))
 
-	logging.Logger.Debug("http request", "curl", strings.Join(parts, " \\\n\t"))
+	logging.Logger.Debug("http request", "curl", strings.Join(parts, " "))
 }
