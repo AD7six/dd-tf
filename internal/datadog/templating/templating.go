@@ -138,25 +138,23 @@ func ExtractStaticPrefix(pathTemplate string) string {
 }
 
 // ComputePathFromTemplate executes a Go template to compute a file path.
-// It handles template parsing, execution, and error fallback.
+// It handles template parsing and execution, returning an error if either fails.
 // The pattern should already be translated (using TranslatePlaceholders).
 // Returns the computed path, replacing "<no value>" with "none".
-func ComputePathFromTemplate(pattern string, data any, fallbackPath string) string {
+func ComputePathFromTemplate(pattern string, data any) (string, error) {
 	// Parse template
 	tmpl, err := template.New("path").Parse(pattern)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to parse path template: %v\n", err)
-		return fallbackPath
+		return "", fmt.Errorf("failed to parse path template: %w", err)
 	}
 
 	// Execute template
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to execute path template: %v\n", err)
-		return fallbackPath
+		return "", fmt.Errorf("failed to execute path template: %w", err)
 	}
 
 	// Replace "<no value>" (from missing template fields) with "none"
 	result := strings.ReplaceAll(buf.String(), "<no value>", "none")
-	return result
+	return result, nil
 }
