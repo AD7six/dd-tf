@@ -20,3 +20,11 @@ func ParseCommaSeparatedIDs(s string) []string {
 	}
 	return ids
 }
+
+// MaskSecret masks all but the first 2 and last 2 characters of a secret.
+func MaskSecret(secret string) string {
+	if len(secret) <= 4 {
+		return "****"
+	}
+	return secret[:2] + strings.Repeat("*", len(secret)-4) + secret[len(secret)-2:]
+}

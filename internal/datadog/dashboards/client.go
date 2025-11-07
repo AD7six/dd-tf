@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/AD7six/dd-tf/internal/datadog/resource"
 	"github.com/AD7six/dd-tf/internal/datadog/templating"
 	internalhttp "github.com/AD7six/dd-tf/internal/http"
+	"github.com/AD7six/dd-tf/internal/logging"
 	"github.com/AD7six/dd-tf/internal/storage"
 	"github.com/AD7six/dd-tf/internal/utils"
 )
@@ -109,20 +109,20 @@ func fetchAndFilterDashboards(filterTags []string, fullData bool) (map[string]ma
 		dashboardURL := fmt.Sprintf("https://api.%s/api/v1/dashboard/%s", settings.Site, id)
 		dashResp, err := client.Get(dashboardURL)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to fetch dashboard %s: %v\n", id, err)
+			logging.Logger.Warn("failed to fetch dashboard", "id", id, "error", err)
 			continue
 		}
 
 		if dashResp.StatusCode != http.StatusOK {
 			dashResp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Warning: failed to fetch dashboard %s: %s\n", id, dashResp.Status)
+			logging.Logger.Warn("failed to fetch dashboard", "id", id, "status", dashResp.Status)
 			continue
 		}
 
 		var dashData map[string]any
 		if err := json.NewDecoder(dashResp.Body).Decode(&dashData); err != nil {
 			dashResp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Warning: failed to decode dashboard %s: %v\n", id, err)
+			logging.Logger.Warn("failed to decode dashboard", "id", id, "error", err)
 			continue
 		}
 		dashResp.Body.Close()
@@ -257,7 +257,7 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 				return
 			}
 			if len(dashboards) == 0 {
-				fmt.Fprintf(os.Stderr, "Warning: no dashboards found with tags: %v\n", filterTags)
+				logging.Logger.Warn("no dashboards found with tags", "tags", filterTags)
 			}
 			for id, data := range dashboards {
 				// Include cached data to avoid duplicate API call
@@ -318,7 +318,7 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 		return err
 	}
 
-	fmt.Printf("Dashboard saved to %s\n", targetPath)
+	logging.Logger.Info("dashboard saved", "path", targetPath)
 	return nil
 }
 
@@ -358,7 +358,7 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 	// Extract title - use placeholder if missing
 	title, ok := dashboard["title"].(string)
 	if !ok || title == "" {
-		fmt.Fprintf(os.Stderr, "Warning: dashboard %s missing valid 'title' field, using placeholder\n", id)
+		logging.Logger.Warn("dashboard missing title; using placeholder", "id", id)
 		title = "untitled"
 	}
 

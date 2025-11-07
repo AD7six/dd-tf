@@ -15,7 +15,17 @@ Install:
 make build  # or: go install github.com/AD7six/dd-tf/cmd/dd-tf@latest
 ```
 
-Configure `.env` with `DD_API_KEY` and `DD_APP_KEY` (and optionally `DD_SITE`).
+Configure environment variables, or create `.env` with `DD_API_KEY` and
+`DD_APP_KEY` - there's a make target to help you if you need it:
+```bash
+❯ make .env
+Creating .env file...
+Enter your Datadog API key: my api key
+Enter your Datadog Application key: my app key
+
+✓ .env file created successfully!
+You can now edit .env to customize optional settings.
+```
 
 Common commands:
 

@@ -3,15 +3,14 @@ package http
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/AD7six/dd-tf/internal/config"
+	"github.com/AD7six/dd-tf/internal/logging"
 )
 
 // Sleeper abstracts time.Sleep for testing.
@@ -117,10 +116,7 @@ func (c *DatadogHTTPClient) GetWithContext(ctx context.Context, url string) (*ht
 		req.Header.Set("DD-API-KEY", c.APIKey)
 		req.Header.Set("DD-APPLICATION-KEY", c.AppKey)
 
-		// Log curl command if DEBUG env var is set
-		if os.Getenv("DEBUG") != "" {
-			c.logCurlCommand(req)
-		}
+		c.logCurlCommand(req)
 
 		resp, err := c.UnderlyingHTTP.Do(req)
 		if err != nil {
@@ -138,7 +134,7 @@ func (c *DatadogHTTPClient) GetWithContext(ctx context.Context, url string) (*ht
 			wait := parseRetryAfter(resp)
 			// Close body before sleeping/retrying
 			if err := resp.Body.Close(); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to close response body: %v\n", err)
+				logging.Logger.Warn("failed to close response body", "error", err)
 			}
 
 			// Set global pause
@@ -156,7 +152,7 @@ func (c *DatadogHTTPClient) GetWithContext(ctx context.Context, url string) (*ht
 		if resp.StatusCode >= 500 {
 			if attempt < c.retries {
 				if err := resp.Body.Close(); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to close response body: %v\n", err)
+					logging.Logger.Warn("failed to close response body", "error", err)
 				}
 				c.sleeper.Sleep(backoffDuration(attempt))
 				continue
@@ -221,7 +217,8 @@ func parseRetryAfter(resp *http.Response) time.Duration {
 		if secs, err := strconv.Atoi(ra); err == nil && secs >= 0 {
 			return time.Duration(secs) * time.Second
 		}
-		// Could be a HTTP date; ignore for simplicity
+		// Assume it's an int, ignore possibility of being a http date for
+		// simplicity
 	}
 	return time.Second
 }
@@ -235,16 +232,18 @@ func (e *rateLimitedError) Error() string {
 }
 
 // logCurlCommand logs the equivalent curl command for a request formatted for
-// copy-paste reuse and readability. Since we're only currently doing GET
-// requests, we omit the -X flag.
+// copy-paste reuse and readability. Only handles GET requests, but that's all
+// we're emitting currently so that's fine.
 func (c *DatadogHTTPClient) logCurlCommand(req *http.Request) {
 	var parts []string
 	parts = append(parts, "curl")
 
 	for key, values := range req.Header {
 		for _, value := range values {
-			if key == "Dd-Api-Key" || key == "Dd-Application-Key" {
-				value = strings.Repeat("*", 8)
+			if key == "Dd-Api-Key" {
+				value = "${DD_API_KEY}"
+			} else if key == "Dd-Application-Key" {
+				value = "${DD_APP_KEY}"
 			}
 			parts = append(parts, fmt.Sprintf("-H %q", fmt.Sprintf("%s: %s", key, value)))
 		}
@@ -252,5 +251,5 @@ func (c *DatadogHTTPClient) logCurlCommand(req *http.Request) {
 
 	parts = append(parts, fmt.Sprintf("%q", req.URL.String()))
 
-	log.Printf("[DEBUG] %s\n", strings.Join(parts, " \\\n\t"))
+	logging.Logger.Debug("http request", "curl", strings.Join(parts, " "))
 }

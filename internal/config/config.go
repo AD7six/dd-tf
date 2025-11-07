@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AD7six/dd-tf/internal/logging"
 	"github.com/joho/godotenv"
 )
 
@@ -48,7 +49,7 @@ func LoadSettings() (*Settings, error) {
 	if _, err := os.Stat(".env"); err == nil {
 		err := godotenv.Overload(".env")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: error loading .env file: %v\n", err)
+			logging.Logger.Warn("error loading .env file", "error", err)
 		}
 	}
 
@@ -64,7 +65,7 @@ func LoadSettings() (*Settings, error) {
 	site := os.Getenv("DD_SITE")
 	site = strings.TrimSpace(strings.ToLower(site))
 	if strings.HasPrefix(site, "api.") {
-		fmt.Fprintf(os.Stderr, "Warning: DD_SITE value \"%s\" should not have prefix 'api.', removing\n", site)
+		logging.Logger.Warn("DD_SITE should not have prefix 'api.', removing", "site", site)
 		site = strings.TrimPrefix(site, "api.")
 	}
 

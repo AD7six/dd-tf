@@ -11,6 +11,7 @@ import (
 	"github.com/AD7six/dd-tf/internal/datadog/resource"
 	"github.com/AD7six/dd-tf/internal/datadog/templating"
 	internalhttp "github.com/AD7six/dd-tf/internal/http"
+	"github.com/AD7six/dd-tf/internal/logging"
 	"github.com/AD7six/dd-tf/internal/storage"
 )
 
@@ -235,6 +236,6 @@ func DownloadMonitorWithOptions(target MonitorTarget, outputPath string) error {
 	if err := storage.WriteJSONFile(targetPath, result); err != nil {
 		return err
 	}
-	fmt.Printf("Monitor saved to %s\n", targetPath)
+	logging.Logger.Info("monitor saved", "path", targetPath)
 	return nil
 }

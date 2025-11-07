@@ -2,11 +2,11 @@ package dashboards
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/AD7six/dd-tf/internal/datadog/dashboards"
 	"github.com/AD7six/dd-tf/internal/datadog/resource"
+	"github.com/AD7six/dd-tf/internal/logging"
 	"github.com/spf13/cobra"
 )
 
@@ -75,7 +75,7 @@ func runDownload(allFlag, updateFlag bool, outputPath, team, tags, dashboardID s
 		}
 
 		target := result.Target // capture
-		fmt.Printf("Downloading dashboard with ID: %s\n", target.ID)
+		logging.Logger.Info("downloading dashboard", "id", target.ID)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -92,7 +92,7 @@ func runDownload(allFlag, updateFlag bool, outputPath, team, tags, dashboardID s
 	var hadErr bool
 	for e := range errCh {
 		hadErr = true
-		fmt.Fprintf(os.Stderr, "Error: %v\n", e)
+		logging.Logger.Error("download failed", "error", e)
 	}
 	if hadErr {
 		return fmt.Errorf("one or more dashboards failed to download")
