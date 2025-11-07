@@ -40,7 +40,7 @@ func NewDownloadCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&allFlag, "all", false, "Download all monitors")
 	cmd.Flags().BoolVar(&updateFlag, "update", false, "Update already-downloaded monitors (scans existing files)")
-	cmd.Flags().StringVar(&outputPath, "output", "", "Output path template (supports {DATA_DIR}, {id}, {name}, {team}, {priority}, and {any-tag})")
+	cmd.Flags().StringVar(&outputPath, "output", "", "Output path template (supports {id}, {name}, {team}, {priority}, {any-tag} and {ANY_ENV_VAR})")
 	cmd.Flags().StringVar(&team, "team", "", "Team name (convenience for tag 'team:x')")
 	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated list of tags to filter monitors")
 	cmd.Flags().StringVar(&monitorID, "id", "", "Monitor ID(s) to download (comma-separated)")

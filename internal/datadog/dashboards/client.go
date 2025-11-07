@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -184,9 +183,6 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 			defer close(out)
 			// Extract the static directory prefix from the path template
 			dashboardsDir := templating.ExtractStaticPrefix(settings.DashboardsPathTemplate)
-			if dashboardsDir == "" {
-				dashboardsDir = filepath.Join(settings.DataDir, "dashboards")
-			}
 			idToPath, err := storage.ExtractIDsFromJSONFiles(dashboardsDir)
 			if err != nil {
 				out <- DashboardTargetResult{Err: fmt.Errorf("failed to scan directory: %w", err)}
@@ -241,7 +237,8 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 	// Build filter tags from --team and --tags flags
 	var filterTags []string
 	if opts.Team != "" {
-		// --team is a convenience flag that translates to team:x tag
+		// --team is a convenience flag that translates to team:x tag - which is
+		// how Datadog stores/handles teams
 		filterTags = append(filterTags, fmt.Sprintf("team:%s", opts.Team))
 	}
 	if opts.Tags != "" {
@@ -309,7 +306,11 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 	// Compute path if not provided (--update uses existing path)
 	targetPath := target.Path
 	if targetPath == "" {
-		targetPath = ComputeDashboardPath(settings, result, outputPath)
+		var err error
+		targetPath, err = ComputeDashboardPath(settings, result, outputPath)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Write JSON file
@@ -323,21 +324,18 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 
 // dashboardTemplateData holds the data available in path templates
 type dashboardTemplateData struct {
-	DataDir string
-	ID      string
-	Title   string
-	Tags    map[string]string
+	ID    string
+	Title string
+	Tags  map[string]string
 }
 
 // ComputeDashboardPath computes the file path from the configured pattern or outputPath override using Go templates.
 // Template variables:
 //
-//	{{.DataDir}} - the data directory from settings
 //	{{.ID}} - dashboard ID
 //	{{.Title}} - sanitized dashboard title
-//	{{.Tags.team}} - value of "team" tag (empty if not found)
 //	{{.Tags.x}} - value of "x" tag (empty if not found)
-func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, outputPath string) string {
+func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, outputPath string) (string, error) {
 	// Use outputPath override if provided, otherwise use setting
 	pattern := outputPath
 	if pattern == "" {
@@ -354,9 +352,7 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 	// Extract ID - required field
 	id, ok := dashboard["id"].(string)
 	if !ok || id == "" {
-		// Fallback: use a placeholder if ID is missing
-		fmt.Fprintf(os.Stderr, "Warning: dashboard missing valid 'id' field, using placeholder\n")
-		id = "unknown-id"
+		return "", fmt.Errorf("dashboard missing valid 'id' field")
 	}
 
 	// Extract title - use placeholder if missing
@@ -368,13 +364,11 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 
 	// Build template data
 	data := dashboardTemplateData{
-		DataDir: settings.DataDir,
-		ID:      id,
-		Title:   storage.SanitizeFilename(title),
-		Tags:    tagMap,
+		ID:    id,
+		Title: storage.SanitizeFilename(title),
+		Tags:  tagMap,
 	}
 
-	// Compute path from template with fallback
-	fallbackPath := filepath.Join(settings.DataDir, "dashboards", id+".json")
-	return templating.ComputePathFromTemplate(pattern, data, fallbackPath)
+	// Compute path from template
+	return templating.ComputePathFromTemplate(pattern, data)
 }

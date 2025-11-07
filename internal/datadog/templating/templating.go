@@ -71,17 +71,15 @@ func TranslatePlaceholders(pattern string, builtins map[string]string) string {
 // BuildDashboardBuiltins returns the builtins map for dashboard path templates.
 func BuildDashboardBuiltins() map[string]string {
 	return map[string]string{
-		"{DATA_DIR}": "{{.DataDir}}",
-		"{id}":       "{{.ID}}",
-		"{title}":    "{{.Title}}",
-		"{name}":     "{{.Title}}", // Alias for consistency with monitors
+		"{id}":    "{{.ID}}",
+		"{title}": "{{.Title}}",
+		"{name}":  "{{.Title}}", // Alias for consistency with monitors
 	}
 }
 
 // BuildMonitorBuiltins returns the builtins map for monitor path templates.
 func BuildMonitorBuiltins() map[string]string {
 	return map[string]string{
-		"{DATA_DIR}": "{{.DataDir}}",
 		"{id}":       "{{.ID}}",
 		"{name}":     "{{.Name}}",
 		"{title}":    "{{.Name}}", // Alias for consistency with dashboards
@@ -91,7 +89,7 @@ func BuildMonitorBuiltins() map[string]string {
 
 // ExtractStaticPrefix returns the longest static prefix from a path template.
 // For example, "data/dashboards/{id}.json" returns "data/dashboards".
-// Environment variable placeholders (e.g., {MY_VAR}) and {DATA_DIR} are expanded before extraction.
+// Environment variable placeholders (e.g., {MY_VAR}) and data are expanded before extraction.
 // For example, if MY_BASE=/opt/data, then "{MY_BASE}/dashboards/{id}.json" returns "/opt/data/dashboards".
 // This is used to determine the base directory to scan when updating existing files.
 func ExtractStaticPrefix(pathTemplate string) string {
@@ -101,11 +99,6 @@ func ExtractStaticPrefix(pathTemplate string) string {
 
 	// First, expand environment variable placeholders
 	expanded := replaceEnvVars(pathTemplate)
-
-	// Also handle {DATA_DIR} placeholder by replacing with DATA_DIR env var if set
-	if dataDir := os.Getenv("DATA_DIR"); dataDir != "" {
-		expanded = strings.ReplaceAll(expanded, "{DATA_DIR}", dataDir)
-	}
 
 	// Find the first remaining placeholder
 	idx := strings.Index(expanded, "{")
@@ -138,25 +131,23 @@ func ExtractStaticPrefix(pathTemplate string) string {
 }
 
 // ComputePathFromTemplate executes a Go template to compute a file path.
-// It handles template parsing, execution, and error fallback.
+// It handles template parsing and execution, returning an error if either fails.
 // The pattern should already be translated (using TranslatePlaceholders).
 // Returns the computed path, replacing "<no value>" with "none".
-func ComputePathFromTemplate(pattern string, data any, fallbackPath string) string {
+func ComputePathFromTemplate(pattern string, data any) (string, error) {
 	// Parse template
 	tmpl, err := template.New("path").Parse(pattern)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to parse path template: %v\n", err)
-		return fallbackPath
+		return "", fmt.Errorf("failed to parse path template: %w", err)
 	}
 
 	// Execute template
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to execute path template: %v\n", err)
-		return fallbackPath
+		return "", fmt.Errorf("failed to execute path template: %w", err)
 	}
 
 	// Replace "<no value>" (from missing template fields) with "none"
 	result := strings.ReplaceAll(buf.String(), "<no value>", "none")
-	return result
+	return result, nil
 }

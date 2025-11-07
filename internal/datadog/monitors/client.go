@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path/filepath"
 	"strings"
 
 	"github.com/AD7six/dd-tf/internal/config"
@@ -29,7 +28,6 @@ type DownloadOptions struct {
 
 // monitorTemplateData holds the data available in path templates for monitors
 type monitorTemplateData struct {
-	DataDir  string
 	ID       int
 	Name     string
 	Tags     map[string]string
@@ -75,7 +73,7 @@ func GenerateMonitorTargets(opts DownloadOptions) (<-chan MonitorTargetResult, e
 		client := internalhttp.GetHTTPClient(settings)
 		// --update: scan existing monitor files and use their paths
 		if opts.Update {
-			monitorsDir := filepath.Join(settings.DataDir, "monitors")
+			monitorsDir := templating.ExtractStaticPrefix(settings.MonitorsPathTemplate)
 			idToPath, err := storage.ExtractIntIDsFromJSONFiles(monitorsDir)
 			if err != nil {
 				out <- MonitorTargetResult{Err: fmt.Errorf("failed to scan directory: %w", err)}
@@ -221,15 +219,18 @@ func DownloadMonitorWithOptions(target MonitorTarget, outputPath string) error {
 		}
 
 		data := monitorTemplateData{
-			DataDir:  settings.DataDir,
 			ID:       target.ID,
 			Name:     name,
 			Tags:     tagMap,
 			Priority: prio,
 		}
 
-		fallbackPath := filepath.Join(settings.DataDir, "monitors", fmt.Sprintf("%d.json", target.ID))
-		targetPath = templating.ComputePathFromTemplate(pattern, data, fallbackPath)
+		// Compute path from template
+		var err error
+		targetPath, err = templating.ComputePathFromTemplate(pattern, data)
+		if err != nil {
+			return err
+		}
 	}
 	if err := storage.WriteJSONFile(targetPath, result); err != nil {
 		return err

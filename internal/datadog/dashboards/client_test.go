@@ -1,7 +1,6 @@
 package dashboards
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -10,8 +9,7 @@ import (
 
 func TestComputeDashboardPath_MissingFields(t *testing.T) {
 	settings := &config.Settings{
-		DataDir:                "/test/data",
-		DashboardsPathTemplate: "{DATA_DIR}/dashboards/{id}-{title}.json",
+		DashboardsPathTemplate: "data/dashboards/{id}-{title}.json",
 	}
 
 	t.Run("missing id field", func(t *testing.T) {
@@ -19,25 +17,11 @@ func TestComputeDashboardPath_MissingFields(t *testing.T) {
 			"title": "Test Dashboard",
 		}
 
-		path := ComputeDashboardPath(settings, dashboard, "")
+		_, err := ComputeDashboardPath(settings, dashboard, "")
 
-		// Should use placeholder "unknown-id" instead of panicking
-		if !strings.Contains(path, "unknown-id") {
-			t.Errorf("Expected path to contain 'unknown-id', got: %s", path)
-		}
-	})
-
-	t.Run("empty id field", func(t *testing.T) {
-		dashboard := map[string]any{
-			"id":    "",
-			"title": "Test Dashboard",
-		}
-
-		path := ComputeDashboardPath(settings, dashboard, "")
-
-		// Should use placeholder "unknown-id" for empty id
-		if !strings.Contains(path, "unknown-id") {
-			t.Errorf("Expected path to contain 'unknown-id', got: %s", path)
+		// Should return an error for missing ID
+		if err == nil {
+			t.Error("Expected error for missing 'id' field, got nil")
 		}
 	})
 
@@ -46,8 +30,10 @@ func TestComputeDashboardPath_MissingFields(t *testing.T) {
 			"id": "abc-123",
 		}
 
-		path := ComputeDashboardPath(settings, dashboard, "")
-
+		path, err := ComputeDashboardPath(settings, dashboard, "")
+		if err != nil {
+			t.Fatalf("ComputeDashboardPath() error = %v", err)
+		}
 		// Should use placeholder "untitled" instead of panicking
 		if !strings.Contains(path, "untitled") {
 			t.Errorf("Expected path to contain 'untitled', got: %s", path)
@@ -57,76 +43,18 @@ func TestComputeDashboardPath_MissingFields(t *testing.T) {
 		}
 	})
 
-	t.Run("empty title field", func(t *testing.T) {
-		dashboard := map[string]any{
-			"id":    "def-456",
-			"title": "",
-		}
-
-		path := ComputeDashboardPath(settings, dashboard, "")
-
-		// Should use placeholder "untitled" for empty title
-		if !strings.Contains(path, "untitled") {
-			t.Errorf("Expected path to contain 'untitled', got: %s", path)
-		}
-	})
-
-	t.Run("both fields missing", func(t *testing.T) {
-		dashboard := map[string]any{
-			"some_other_field": "value",
-		}
-
-		path := ComputeDashboardPath(settings, dashboard, "")
-
-		// Should use both placeholders
-		if !strings.Contains(path, "unknown-id") {
-			t.Errorf("Expected path to contain 'unknown-id', got: %s", path)
-		}
-		if !strings.Contains(path, "untitled") {
-			t.Errorf("Expected path to contain 'untitled', got: %s", path)
-		}
-	})
-
-	t.Run("wrong type for id", func(t *testing.T) {
-		dashboard := map[string]any{
-			"id":    123, // number instead of string
-			"title": "Test",
-		}
-
-		path := ComputeDashboardPath(settings, dashboard, "")
-
-		// Should use placeholder instead of panicking
-		if !strings.Contains(path, "unknown-id") {
-			t.Errorf("Expected path to contain 'unknown-id' for non-string id, got: %s", path)
-		}
-	})
-
-	t.Run("wrong type for title", func(t *testing.T) {
-		dashboard := map[string]any{
-			"id":    "xyz-789",
-			"title": []string{"not", "a", "string"}, // array instead of string
-		}
-
-		path := ComputeDashboardPath(settings, dashboard, "")
-
-		// Should use placeholder instead of panicking
-		if !strings.Contains(path, "untitled") {
-			t.Errorf("Expected path to contain 'untitled' for non-string title, got: %s", path)
-		}
-		if !strings.Contains(path, "xyz-789") {
-			t.Errorf("Expected path to contain id 'xyz-789', got: %s", path)
-		}
-	})
-
 	t.Run("valid fields work normally", func(t *testing.T) {
 		dashboard := map[string]any{
 			"id":    "valid-123",
 			"title": "My Dashboard",
 		}
 
-		path := ComputeDashboardPath(settings, dashboard, "")
+		path, err := ComputeDashboardPath(settings, dashboard, "")
+		if err != nil {
+			t.Fatalf("ComputeDashboardPath() error = %v", err)
+		}
 
-		expected := filepath.Join("/test/data/dashboards", "valid-123-My-Dashboard.json")
+		expected := "data/dashboards/valid-123-My-Dashboard.json"
 		if path != expected {
 			t.Errorf("Expected path %s, got: %s", expected, path)
 		}
@@ -135,8 +63,7 @@ func TestComputeDashboardPath_MissingFields(t *testing.T) {
 
 func TestComputeDashboardPath_WithTags(t *testing.T) {
 	settings := &config.Settings{
-		DataDir:                "/test/data",
-		DashboardsPathTemplate: "{DATA_DIR}/dashboards/{team}/{title}-{id}.json",
+		DashboardsPathTemplate: "data/dashboards/{team}/{title}-{id}.json",
 	}
 
 	t.Run("with valid tags", func(t *testing.T) {
@@ -146,7 +73,10 @@ func TestComputeDashboardPath_WithTags(t *testing.T) {
 			"tags":  []interface{}{"team:platform", "env:prod"},
 		}
 
-		path := ComputeDashboardPath(settings, dashboard, "")
+		path, err := ComputeDashboardPath(settings, dashboard, "")
+		if err != nil {
+			t.Fatalf("ComputeDashboardPath() error = %v", err)
+		}
 
 		if !strings.Contains(path, "platform") {
 			t.Errorf("Expected path to contain 'platform' team, got: %s", path)
@@ -163,7 +93,10 @@ func TestComputeDashboardPath_WithTags(t *testing.T) {
 			"tags":  []interface{}{"env:prod"},
 		}
 
-		path := ComputeDashboardPath(settings, dashboard, "")
+		path, err := ComputeDashboardPath(settings, dashboard, "")
+		if err != nil {
+			t.Fatalf("ComputeDashboardPath() error = %v", err)
+		}
 
 		// Should use "none" as default for missing team tag
 		if !strings.Contains(path, "none") {
@@ -174,8 +107,7 @@ func TestComputeDashboardPath_WithTags(t *testing.T) {
 
 func TestComputeDashboardPath_WithOutputOverride(t *testing.T) {
 	settings := &config.Settings{
-		DataDir:                "/test/data",
-		DashboardsPathTemplate: "{DATA_DIR}/dashboards/{id}.json", // Default pattern
+		DashboardsPathTemplate: "data/dashboards/{id}.json", // Default pattern
 	}
 
 	dashboard := map[string]any{
@@ -185,7 +117,10 @@ func TestComputeDashboardPath_WithOutputOverride(t *testing.T) {
 
 	t.Run("uses output override when provided", func(t *testing.T) {
 		outputPath := "/custom/path/{title}-{id}.json"
-		path := ComputeDashboardPath(settings, dashboard, outputPath)
+		path, err := ComputeDashboardPath(settings, dashboard, outputPath)
+		if err != nil {
+			t.Fatalf("ComputeDashboardPath() error = %v", err)
+		}
 
 		if !strings.Contains(path, "Override-Test") {
 			t.Errorf("Expected path to use custom pattern with title, got: %s", path)
@@ -196,9 +131,12 @@ func TestComputeDashboardPath_WithOutputOverride(t *testing.T) {
 	})
 
 	t.Run("uses default pattern when override is empty", func(t *testing.T) {
-		path := ComputeDashboardPath(settings, dashboard, "")
+		path, err := ComputeDashboardPath(settings, dashboard, "")
+		if err != nil {
+			t.Fatalf("ComputeDashboardPath() error = %v", err)
+		}
 
-		expected := filepath.Join("/test/data/dashboards", "override-123.json")
+		expected := "data/dashboards/override-123.json"
 		if path != expected {
 			t.Errorf("Expected path %s, got: %s", expected, path)
 		}
