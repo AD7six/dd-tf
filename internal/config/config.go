@@ -4,7 +4,6 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -27,7 +26,7 @@ type Settings struct {
 	PageSize               int           `env:"PAGE_SIZE"`                // Number of results per page for index endpoints, defaults to 1000
 }
 
-// LoadSettings loads configuration from environment variables and optional .env files.
+// LoadSettings loads configuration from environment variables and optional .env file.
 // Embedded defaults are loaded first, then .env file (if present) overrides them.
 // Required environment variables: DD_API_KEY, DD_APP_KEY.
 // Optional variables: DD_SITE, DATA_DIR, DASHBOARDS_PATH_TEMPLATE, MONITORS_PATH_TEMPLATE, HTTP_TIMEOUT, HTTP_MAX_BODY_SIZE, PAGE_SIZE.
@@ -35,13 +34,13 @@ func LoadSettings() (*Settings, error) {
 	// Load embedded defaults first
 	envMap, err := godotenv.Unmarshal(embeddedDefaults)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: error parsing embedded defaults: %v\n", err)
-	} else {
-		// Set defaults only if not already set
-		for k, v := range envMap {
-			if os.Getenv(k) == "" {
-				os.Setenv(k, v)
-			}
+		return nil, fmt.Errorf("error parsing embedded defaults: %w", err)
+	}
+
+	// Set defaults, don't clobber existing env variables if set
+	for k, v := range envMap {
+		if os.Getenv(k) == "" {
+			os.Setenv(k, v)
 		}
 	}
 
@@ -62,20 +61,19 @@ func LoadSettings() (*Settings, error) {
 		return nil, err
 	}
 
-	site := getEnv("DD_SITE", "datadoghq.com")
+	site := os.Getenv("DD_SITE")
 	site = strings.TrimSpace(strings.ToLower(site))
 	if strings.HasPrefix(site, "api.") {
 		fmt.Fprintf(os.Stderr, "Warning: DD_SITE value \"%s\" should not have prefix 'api.', removing\n", site)
 		site = strings.TrimPrefix(site, "api.")
 	}
 
-	dataDir := getEnv("DATA_DIR", "data")
-	dashboardsPathTemplate := getEnv("DASHBOARDS_PATH_TEMPLATE", filepath.Join(dataDir, "dashboards", "{id}.json"))
-	monitorsPathTemplate := getEnv("MONITORS_PATH_TEMPLATE", filepath.Join(dataDir, "monitors", "{id}.json"))
+	dashboardsPathTemplate := os.Getenv("DASHBOARDS_PATH_TEMPLATE")
+	monitorsPathTemplate := os.Getenv("MONITORS_PATH_TEMPLATE")
 
-	httpTimeout := time.Duration(getEnvInt("HTTP_TIMEOUT", 60)) * time.Second
-	HTTPMaxBodySize := int64(getEnvInt("HTTP_MAX_BODY_SIZE", 10*1024*1024)) // 10MB default
-	pageSize := getEnvInt("PAGE_SIZE", 1000)
+	httpTimeout := time.Duration(getEnvInt("HTTP_TIMEOUT", 0)) * time.Second
+	HTTPMaxBodySize := int64(getEnvInt("HTTP_MAX_BODY_SIZE", 0))
+	pageSize := getEnvInt("PAGE_SIZE", 0)
 
 	return &Settings{
 		APIKey:                 apiKey,
@@ -89,36 +87,12 @@ func LoadSettings() (*Settings, error) {
 	}, nil
 }
 
-// get the env variable with a default
-func getEnv(key, def string) string {
-	if v, ok := os.LookupEnv(key); ok && v != "" {
-		return v
-	}
-	return def
-}
-
 // get the env variable or raise an error
 func getEnvRequired(key string) (string, error) {
 	if v, ok := os.LookupEnv(key); ok && v != "" {
 		return v, nil
 	}
 	return "", fmt.Errorf("%s environment variable must be set", key)
-}
-
-// getEnvBool returns a boolean env var with support for common truthy/falsey strings, defaulting when unset/empty.
-func getEnvBool(key string, def bool) bool {
-	v, ok := os.LookupEnv(key)
-	if !ok || v == "" {
-		return def
-	}
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "1", "true", "t", "yes", "y", "on":
-		return true
-	case "0", "false", "f", "no", "n", "off":
-		return false
-	default:
-		return def
-	}
 }
 
 // getEnvInt returns an integer env var, defaulting when unset/empty or invalid.
