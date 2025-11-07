@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/AD7six/dd-tf/internal/config"
+	"github.com/AD7six/dd-tf/internal/logging"
 )
 
 // Sleeper abstracts time.Sleep for testing.
@@ -138,7 +138,7 @@ func (c *DatadogHTTPClient) GetWithContext(ctx context.Context, url string) (*ht
 			wait := parseRetryAfter(resp)
 			// Close body before sleeping/retrying
 			if err := resp.Body.Close(); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to close response body: %v\n", err)
+				logging.Logger.Warn("failed to close response body", "error", err)
 			}
 
 			// Set global pause
@@ -156,7 +156,7 @@ func (c *DatadogHTTPClient) GetWithContext(ctx context.Context, url string) (*ht
 		if resp.StatusCode >= 500 {
 			if attempt < c.retries {
 				if err := resp.Body.Close(); err != nil {
-					fmt.Fprintf(os.Stderr, "Warning: failed to close response body: %v\n", err)
+					logging.Logger.Warn("failed to close response body", "error", err)
 				}
 				c.sleeper.Sleep(backoffDuration(attempt))
 				continue
@@ -252,5 +252,5 @@ func (c *DatadogHTTPClient) logCurlCommand(req *http.Request) {
 
 	parts = append(parts, fmt.Sprintf("%q", req.URL.String()))
 
-	log.Printf("[DEBUG] %s\n", strings.Join(parts, " \\\n\t"))
+	logging.Logger.Debug("http request", "curl", strings.Join(parts, " \\\n\t"))
 }
