@@ -19,7 +19,6 @@ func main() {
 			if verbose {
 				logging.InitLogger("debug")
 			}
-			logging.Logger.Debug("Verbose logging enabled")
 		},
 	}
 
