@@ -89,17 +89,18 @@ dd-tf dashboards download --all --output='/somewhere/else/{id}-{title}.json'
 dd-tf monitors   download --all --output='/somewhere/else/{id}-{name}.json'
 ```
 
-Or set environment variables: `DATA_DIR`, `DASHBOARDS_PATH_TEMPLATE`, `MONITORS_PATH_TEMPLATE`.
+Or set environment variables: `DATA_DIR`, `DASHBOARDS_PATH_TEMPLATE`,
+`MONITORS_PATH_TEMPLATE`.
 
 Supported placeholders (rendered with Go templates):
 
-- `data`
 - `{id}`
 - `{title}` (dashboards)
 - `{name}` (monitors)
 - `{team}`
 - `{priority}` (monitors)
-- Any tag key placeholder like `{env}` or `{service}` – any tag present on the resource
+- `{ANY_ENV_VAR}` (uppercase) to reference environment variables
+- `{any_tag}` to reference any tag value
 
 Notes:
 
