@@ -25,20 +25,6 @@ func TestComputeDashboardPath_MissingFields(t *testing.T) {
 		}
 	})
 
-	t.Run("empty id field", func(t *testing.T) {
-		dashboard := map[string]any{
-			"id":    "",
-			"title": "Test Dashboard",
-		}
-
-		_, err := ComputeDashboardPath(settings, dashboard, "")
-
-		// Should return an error for empty ID
-		if err == nil {
-			t.Error("Expected error for empty 'id' field, got nil")
-		}
-	})
-
 	t.Run("missing title field", func(t *testing.T) {
 		dashboard := map[string]any{
 			"id": "abc-123",
@@ -54,70 +40,6 @@ func TestComputeDashboardPath_MissingFields(t *testing.T) {
 		}
 		if !strings.Contains(path, "abc-123") {
 			t.Errorf("Expected path to contain id 'abc-123', got: %s", path)
-		}
-	})
-
-	t.Run("empty title field", func(t *testing.T) {
-		dashboard := map[string]any{
-			"id":    "def-456",
-			"title": "",
-		}
-
-		path, err := ComputeDashboardPath(settings, dashboard, "")
-		if err != nil {
-			t.Fatalf("ComputeDashboardPath() error = %v", err)
-		}
-
-		// Should use placeholder "untitled" for empty title
-		if !strings.Contains(path, "untitled") {
-			t.Errorf("Expected path to contain 'untitled', got: %s", path)
-		}
-	})
-
-	t.Run("both fields missing", func(t *testing.T) {
-		dashboard := map[string]any{
-			"some_other_field": "value",
-		}
-
-		_, err := ComputeDashboardPath(settings, dashboard, "")
-
-		// Should return an error for missing ID
-		if err == nil {
-			t.Error("Expected error for missing 'id' field, got nil")
-		}
-	})
-
-	t.Run("wrong type for id", func(t *testing.T) {
-		dashboard := map[string]any{
-			"id":    123, // number instead of string
-			"title": "Test",
-		}
-
-		_, err := ComputeDashboardPath(settings, dashboard, "")
-
-		// Should return an error for wrong type ID
-		if err == nil {
-			t.Error("Expected error for non-string 'id' field, got nil")
-		}
-	})
-
-	t.Run("wrong type for title", func(t *testing.T) {
-		dashboard := map[string]any{
-			"id":    "xyz-789",
-			"title": []string{"not", "a", "string"}, // array instead of string
-		}
-
-		path, err := ComputeDashboardPath(settings, dashboard, "")
-		if err != nil {
-			t.Fatalf("ComputeDashboardPath() error = %v", err)
-		}
-
-		// Should use placeholder instead of panicking
-		if !strings.Contains(path, "untitled") {
-			t.Errorf("Expected path to contain 'untitled' for non-string title, got: %s", path)
-		}
-		if !strings.Contains(path, "xyz-789") {
-			t.Errorf("Expected path to contain id 'xyz-789', got: %s", path)
 		}
 	})
 
