@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/AD7six/dd-tf/internal/logging"
 )
 
 const (
@@ -61,7 +63,7 @@ func ExtractIDsFromJSONFiles(dir string) (map[string]string, error) {
 	result := make(map[string]string)
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to access %s: %v\n", path, err)
+			logging.Logger.Warn("failed to access file", "path", path, "error", err)
 			return nil // Continue walking despite errors
 		}
 
@@ -77,32 +79,32 @@ func ExtractIDsFromJSONFiles(dir string) (map[string]string, error) {
 
 		// Check file size before reading
 		if info.Size() > maxJSONFileSize {
-			fmt.Fprintf(os.Stderr, "Warning: skipping %s (file too large: %d bytes, max %d bytes)\n", path, info.Size(), maxJSONFileSize)
+			logging.Logger.Warn("skipping file (too large)", "path", path, "size", info.Size(), "max", maxJSONFileSize)
 			return nil
 		}
 
 		// Read JSON file and extract "id" field
 		data, err := os.ReadFile(path)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to read %s: %v\n", path, err)
+			logging.Logger.Warn("failed to read file", "path", path, "error", err)
 			return nil
 		}
 
 		var content map[string]any
 		if err := json.Unmarshal(data, &content); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v\n", path, err)
+			logging.Logger.Warn("failed to parse JSON", "path", path, "error", err)
 			return nil
 		}
 
 		id, ok := content["id"].(string)
 		if !ok || id == "" {
-			fmt.Fprintf(os.Stderr, "Warning: no valid 'id' field in %s\n", path)
+			logging.Logger.Warn("no valid id field", "path", path)
 			return nil
 		}
 
 		// Store the first occurrence; duplicates are logged but not stored
 		if existing, exists := result[id]; exists {
-			fmt.Fprintf(os.Stderr, "Warning: duplicate id '%s' in %s (already found in %s)\n", id, path, existing)
+			logging.Logger.Warn("duplicate id", "id", id, "path", path, "existing", existing)
 		} else {
 			result[id] = path
 		}
@@ -128,7 +130,7 @@ func ExtractIntIDsFromJSONFiles(dir string) (map[int]string, error) {
 	result := make(map[int]string)
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to access %s: %v\n", path, err)
+			logging.Logger.Warn("failed to access file", "path", path, "error", err)
 			return nil // Continue walking despite errors
 		}
 
@@ -139,33 +141,33 @@ func ExtractIntIDsFromJSONFiles(dir string) (map[int]string, error) {
 			return nil
 		}
 		if info.Size() > maxJSONFileSize {
-			fmt.Fprintf(os.Stderr, "Warning: skipping %s (file too large: %d bytes, max %d bytes)\n", path, info.Size(), maxJSONFileSize)
+			logging.Logger.Warn("skipping file (too large)", "path", path, "size", info.Size(), "max", maxJSONFileSize)
 			return nil
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to read %s: %v\n", path, err)
+			logging.Logger.Warn("failed to read file", "path", path, "error", err)
 			return nil
 		}
 		var content map[string]any
 		if err := json.Unmarshal(data, &content); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to parse %s: %v\n", path, err)
+			logging.Logger.Warn("failed to parse JSON", "path", path, "error", err)
 			return nil
 		}
 		// JSON decoder uses float64 for numbers by default
 		if f, ok := content["id"].(float64); ok {
 			id := int(f)
 			if id == 0 {
-				fmt.Fprintf(os.Stderr, "Warning: invalid 'id' value in %s\n", path)
+				logging.Logger.Warn("invalid id value", "path", path)
 				return nil
 			}
 			if existing, exists := result[id]; exists {
-				fmt.Fprintf(os.Stderr, "Warning: duplicate id '%d' in %s (already found in %s)\n", id, path, existing)
+				logging.Logger.Warn("duplicate id", "id", id, "path", path, "existing", existing)
 			} else {
 				result[id] = path
 			}
 		} else {
-			fmt.Fprintf(os.Stderr, "Warning: no numeric 'id' field in %s\n", path)
+			logging.Logger.Warn("no numeric id field", "path", path)
 		}
 		return nil
 	})
