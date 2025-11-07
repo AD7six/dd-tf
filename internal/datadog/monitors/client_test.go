@@ -303,7 +303,6 @@ func TestComputeMonitorPath(t *testing.T) {
 func TestMonitorTemplateData(t *testing.T) {
 	t.Run("sanitizes monitor name", func(t *testing.T) {
 		data := monitorTemplateData{
-			DataDir:  "/data",
 			ID:       123,
 			Name:     "Test-Monitor-With-Special-Chars!@#",
 			Tags:     map[string]string{"team": "platform"},
@@ -318,7 +317,6 @@ func TestMonitorTemplateData(t *testing.T) {
 
 	t.Run("handles missing tags", func(t *testing.T) {
 		data := monitorTemplateData{
-			DataDir:  "/data",
 			ID:       456,
 			Name:     "No Tags Monitor",
 			Tags:     map[string]string{},
@@ -335,7 +333,6 @@ func TestMonitorTemplateData(t *testing.T) {
 
 	t.Run("handles zero priority", func(t *testing.T) {
 		data := monitorTemplateData{
-			DataDir:  "/data",
 			ID:       789,
 			Name:     "No Priority",
 			Tags:     map[string]string{},

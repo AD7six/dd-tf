@@ -185,7 +185,7 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 			// Extract the static directory prefix from the path template
 			dashboardsDir := templating.ExtractStaticPrefix(settings.DashboardsPathTemplate)
 			if dashboardsDir == "" {
-				dashboardsDir = filepath.Join(settings.DataDir, "dashboards")
+				dashboardsDir = filepath.Join("data", "dashboards")
 			}
 			idToPath, err := storage.ExtractIDsFromJSONFiles(dashboardsDir)
 			if err != nil {
@@ -323,10 +323,9 @@ func DownloadDashboardWithOptions(target DashboardTarget, outputPath string) err
 
 // dashboardTemplateData holds the data available in path templates
 type dashboardTemplateData struct {
-	DataDir string
-	ID      string
-	Title   string
-	Tags    map[string]string
+	ID    string
+	Title string
+	Tags  map[string]string
 }
 
 // ComputeDashboardPath computes the file path from the configured pattern or outputPath override using Go templates.
@@ -368,13 +367,12 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 
 	// Build template data
 	data := dashboardTemplateData{
-		DataDir: settings.DataDir,
-		ID:      id,
-		Title:   storage.SanitizeFilename(title),
-		Tags:    tagMap,
+		ID:    id,
+		Title: storage.SanitizeFilename(title),
+		Tags:  tagMap,
 	}
 
 	// Compute path from template with fallback
-	fallbackPath := filepath.Join(settings.DataDir, "dashboards", id+".json")
+	fallbackPath := filepath.Join("data", "dashboards", id+".json")
 	return templating.ComputePathFromTemplate(pattern, data, fallbackPath)
 }
