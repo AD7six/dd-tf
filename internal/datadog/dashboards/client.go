@@ -237,7 +237,8 @@ func GenerateDashboardTargets(opts DownloadOptions) (<-chan DashboardTargetResul
 	// Build filter tags from --team and --tags flags
 	var filterTags []string
 	if opts.Team != "" {
-		// --team is a convenience flag that translates to team:x tag
+		// --team is a convenience flag that translates to team:x tag - which is
+		// how Datadog stores/handles teams
 		filterTags = append(filterTags, fmt.Sprintf("team:%s", opts.Team))
 	}
 	if opts.Tags != "" {
@@ -331,10 +332,8 @@ type dashboardTemplateData struct {
 // ComputeDashboardPath computes the file path from the configured pattern or outputPath override using Go templates.
 // Template variables:
 //
-//	{{.DataDir}} - the data directory from settings
 //	{{.ID}} - dashboard ID
 //	{{.Title}} - sanitized dashboard title
-//	{{.Tags.team}} - value of "team" tag (empty if not found)
 //	{{.Tags.x}} - value of "x" tag (empty if not found)
 func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, outputPath string) (string, error) {
 	// Use outputPath override if provided, otherwise use setting

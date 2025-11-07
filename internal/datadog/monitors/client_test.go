@@ -16,11 +16,6 @@ func TestTranslateToTemplate(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "translates DATA_DIR",
-			input:    "{DATA_DIR}/monitors/{id}.json",
-			expected: "{{.DataDir}}/monitors/{{.ID}}.json",
-		},
-		{
 			name:     "translates id",
 			input:    "monitors/{id}.json",
 			expected: "monitors/{{.ID}}.json",
@@ -47,8 +42,8 @@ func TestTranslateToTemplate(t *testing.T) {
 		},
 		{
 			name:     "handles multiple tags",
-			input:    "{DATA_DIR}/{team}/{env}/{id}.json",
-			expected: "{{.DataDir}}/{{.Tags.team}}/{{.Tags.env}}/{{.ID}}.json",
+			input:    "monitors/{team}/{env}/{id}.json",
+			expected: "monitors/{{.Tags.team}}/{{.Tags.env}}/{{.ID}}.json",
 		},
 		{
 			name:     "no placeholders",
@@ -57,8 +52,8 @@ func TestTranslateToTemplate(t *testing.T) {
 		},
 		{
 			name:     "mixed builtins and tags",
-			input:    "{DATA_DIR}/{team}/p{priority}/{name}-{id}.json",
-			expected: "{{.DataDir}}/{{.Tags.team}}/p{{.Priority}}/{{.Name}}-{{.ID}}.json",
+			input:    "monitors/{team}/p{priority}/{name}-{id}.json",
+			expected: "monitors/{{.Tags.team}}/p{{.Priority}}/{{.Name}}-{{.ID}}.json",
 		},
 	}
 

@@ -22,21 +22,19 @@ func TestTranslatePlaceholders(t *testing.T) {
 		},
 		{
 			name:    "builtin placeholder",
-			pattern: "{DATA_DIR}/dashboards/{id}.json",
+			pattern: "data/dashboards/{id}.json",
 			builtins: map[string]string{
-				"{DATA_DIR}": "{{.DataDir}}",
-				"{id}":       "{{.ID}}",
+				"{id}": "{{.ID}}",
 			},
-			want: "{{.DataDir}}/dashboards/{{.ID}}.json",
+			want: "data/dashboards/{{.ID}}.json",
 		},
 		{
 			name:    "tag placeholder",
-			pattern: "{DATA_DIR}/dashboards/{team}/{id}.json",
+			pattern: "data/dashboards/{team}/{id}.json",
 			builtins: map[string]string{
-				"{DATA_DIR}": "{{.DataDir}}",
-				"{id}":       "{{.ID}}",
+				"{id}": "{{.ID}}",
 			},
-			want: "{{.DataDir}}/dashboards/{{.Tags.team}}/{{.ID}}.json",
+			want: "data/dashboards/{{.Tags.team}}/{{.ID}}.json",
 		},
 		{
 			name:    "multiple tag placeholders",
@@ -53,22 +51,19 @@ func TestTranslatePlaceholders(t *testing.T) {
 			want:     "{{.Tags.team}}/{{.Tags.priority}}/{{.Tags.name}}.json",
 		},
 		{
-			name:    "mixed case and special chars",
-			pattern: "{DATA_DIR}/{Team_Name}/{id-123}.json",
-			builtins: map[string]string{
-				"{DATA_DIR}": "{{.DataDir}}",
-			},
-			want: "{{.DataDir}}/{{.Tags.Team_Name}}/{{.Tags.id-123}}.json",
+			name:     "mixed case and special chars",
+			pattern:  "data/{Team_Name}/{id-123}.json",
+			builtins: map[string]string{},
+			want:     "data/{{.Tags.Team_Name}}/{{.Tags.id-123}}.json",
 		},
 		{
 			name:    "all builtins matched",
-			pattern: "{DATA_DIR}/{id}/{title}",
+			pattern: "data/{id}/{title}",
 			builtins: map[string]string{
-				"{DATA_DIR}": "{{.DataDir}}",
-				"{id}":       "{{.ID}}",
-				"{title}":    "{{.Title}}",
+				"{id}":    "{{.ID}}",
+				"{title}": "{{.Title}}",
 			},
-			want: "{{.DataDir}}/{{.ID}}/{{.Title}}",
+			want: "data/{{.ID}}/{{.Title}}",
 		},
 		{
 			name:    "duplicate placeholders",
@@ -105,10 +100,9 @@ func TestTranslatePlaceholders(t *testing.T) {
 		},
 		{
 			name:    "env var replaced before builtin - builtin doesn't match anymore",
-			pattern: "{DATA_DIR}/dashboards/{id}.json",
+			pattern: "data/dashboards/{id}.json",
 			builtins: map[string]string{
-				"{DATA_DIR}": "{{.DataDir}}",
-				"{id}":       "{{.ID}}",
+				"{id}": "{{.ID}}",
 			},
 			envVars: map[string]string{
 				"DATA_DIR": "/var/data",
@@ -117,12 +111,11 @@ func TestTranslatePlaceholders(t *testing.T) {
 		},
 		{
 			name:    "builtin works when env var not set",
-			pattern: "{DATA_DIR}/dashboards/{id}.json",
+			pattern: "data/dashboards/{id}.json",
 			builtins: map[string]string{
-				"{DATA_DIR}": "{{.DataDir}}",
-				"{id}":       "{{.ID}}",
+				"{id}": "{{.ID}}",
 			},
-			want: "{{.DataDir}}/dashboards/{{.ID}}.json",
+			want: "data/dashboards/{{.ID}}.json",
 		},
 		{
 			name:    "multiple env vars",
@@ -190,12 +183,12 @@ func TestExtractStaticPrefix(t *testing.T) {
 		},
 		{
 			name:         "template with DATA_DIR placeholder first - no env var",
-			pathTemplate: "{DATA_DIR}/dashboards/{id}.json",
+			pathTemplate: "data/dashboards/{id}.json",
 			want:         "",
 		},
 		{
 			name:         "template with DATA_DIR placeholder first - with env var",
-			pathTemplate: "{DATA_DIR}/dashboards/{id}.json",
+			pathTemplate: "data/dashboards/{id}.json",
 			envVars: map[string]string{
 				"DATA_DIR": "/opt/data",
 			},

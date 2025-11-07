@@ -19,8 +19,8 @@ type Settings struct {
 	APIKey                 string        `env:"DD_API_KEY"`               // Required, Datadog API key
 	AppKey                 string        `env:"DD_APP_KEY"`               // Required, Datadog application key
 	Site                   string        `env:"DD_SITE"`                  // Datadog site (e.g., datadoghq.com). Used to build https://api.{Site}
-	DashboardsPathTemplate string        `env:"DASHBOARDS_PATH_TEMPLATE"` // Path template for dashboard full path, defaults to "{DATA_DIR}/dashboards/{id}.json"
-	MonitorsPathTemplate   string        `env:"MONITORS_PATH_TEMPLATE"`   // Path template for monitor full path, defaults to "{DATA_DIR}/monitors/{id}.json"
+	DashboardsPathTemplate string        `env:"DASHBOARDS_PATH_TEMPLATE"` // Path template for dashboard full path, defaults to "data/dashboards/{id}.json"
+	MonitorsPathTemplate   string        `env:"MONITORS_PATH_TEMPLATE"`   // Path template for monitor full path, defaults to "data/monitors/{id}.json"
 	HTTPTimeout            time.Duration `env:"HTTP_TIMEOUT"`             // HTTP client timeout, defaults to 60 seconds
 	HTTPMaxBodySize        int64         `env:"HTTP_MAX_BODY_SIZE"`       // Maximum allowed API response body size in bytes, defaults to 10MB
 	PageSize               int           `env:"PAGE_SIZE"`                // Number of results per page for index endpoints, defaults to 1000

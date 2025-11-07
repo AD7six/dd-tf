@@ -12,11 +12,11 @@ bin/dd-tf monitors download [flags]
 
 - `--id` string: Monitor ID(s) to download (comma-separated integers).
 - `--all`: Download all monitors.
-- `--update`: Update already-downloaded monitors by scanning existing JSON files under `{DATA_DIR}/monitors` and re-downloading by `id`.
+- `--update`: Update already-downloaded monitors by scanning existing JSON files under `data/monitors` and re-downloading by `id`.
 - `--team` string: Filter by team (convenience for tag `team:x`).
 - `--tags` string: Comma-separated list of tags to filter monitors.
 - `--priority` int: Filter by monitor priority.
-- `--output` string: Output path template (supports `{DATA_DIR}`, `{id}`, `{name}`, `{team}`, `{priority}`, and any tag key placeholder like `{env}`).
+- `--output` string: Output path template (supports `data`, `{id}`, `{name}`, `{team}`, `{priority}`, and any tag key placeholder like `{env}`).
 
 At least one of `--update`, `--all`, `--id`, `--team`, `--tags`, or `--priority` must be provided.
 
@@ -36,16 +36,16 @@ bin/dd-tf monitors download --all
 bin/dd-tf monitors download --tags="service:my-service"
 
 # Group by team and include name and priority in filename
-bin/dd-tf monitors download --all --output='{DATA_DIR}/monitors/{team}/{priority}/{name}-{id}.json'
+bin/dd-tf monitors download --all --output='data/monitors/{team}/{priority}/{name}-{id}.json'
 ```
 
 ## Path templating
 
-Default: `{DATA_DIR}/monitors/{id}.json`
+Default: `data/monitors/{id}.json`
 
 Placeholders:
 
-- `{DATA_DIR}`
+- `data`
 - `{id}`
 - `{name}`
 - `{team}`
@@ -60,7 +60,7 @@ Notes:
 ## Environment
 
 - `DATA_DIR` – base folder for data files (default: `data`)
-- `MONITORS_PATH_TEMPLATE` – monitor path pattern (default: `{DATA_DIR}/monitors/{id}.json`)
+- `MONITORS_PATH_TEMPLATE` – monitor path pattern (default: `$DATA_DIR/monitors/{id}.json`)
 
 ## See also
 

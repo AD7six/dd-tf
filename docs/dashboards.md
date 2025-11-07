@@ -12,10 +12,10 @@ bin/dd-tf dashboards download [flags]
 
 - `--id` string: Dashboard ID(s) to download (comma-separated). The ID is visible in the Datadog URL: `https://app.datadoghq.com/dash/<id>`.
 - `--all`: Download all dashboards.
-- `--update`: Update already-downloaded dashboards by scanning existing JSON files under `{DATA_DIR}/dashboards` and re-downloading by `id`.
+- `--update`: Update already-downloaded dashboards by scanning existing JSON files under `data/dashboards` and re-downloading by `id`.
 - `--team` string: Filter by team (convenience for tag `team:x`).
 - `--tags` string: Comma-separated list of tags to filter dashboards.
-- `--output` string: Output path template (supports `{DATA_DIR}`, `{id}`, `{title}`, `{team}`, and any tag key placeholder like `{env}`).
+- `--output` string: Output path template (supports `data`, `{id}`, `{title}`, `{team}`, and any tag key placeholder like `{env}`).
 
 At least one of `--update`, `--all`, `--id`, `--team`, or `--tags` must be provided.
 
@@ -35,16 +35,16 @@ bin/dd-tf dashboards download --all
 bin/dd-tf dashboards download --team=myteam
 
 # Download all dashboards, group by team and include title in filename
-bin/dd-tf dashboards download --all --output='{DATA_DIR}/dashboards/{team}/{title}-{id}.json'
+bin/dd-tf dashboards download --all --output='data/dashboards/{team}/{title}-{id}.json'
 ```
 
 ## Path templating
 
-Default: `{DATA_DIR}/dashboards/{id}.json`
+Default: `data/dashboards/{id}.json`
 
 Placeholders:
 
-- `{DATA_DIR}`
+- `data`
 - `{id}`
 - `{title}`
 - `{team}`
@@ -58,7 +58,7 @@ Notes:
 ## Environment
 
 - `DATA_DIR` – base folder for data files (default: `data`)
-- `DASHBOARDS_PATH_TEMPLATE` – dashboard path pattern (default: `{DATA_DIR}/dashboards/{id}.json`)
+- `DASHBOARDS_PATH_TEMPLATE` – dashboard path pattern (default: `$DATA_DIR/dashboards/{id}.json`)
 
 ## See also
 

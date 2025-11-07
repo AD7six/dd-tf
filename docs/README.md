@@ -59,8 +59,8 @@ Optional:
 
 - `DD_SITE` – Datadog site parameter (default: `datadoghq.com`)
 - `DATA_DIR` – base folder for data files (default: `data`)
-- `DASHBOARDS_PATH_TEMPLATE` – dashboard path pattern (default: `{DATA_DIR}/dashboards/{id}.json`)
-- `MONITORS_PATH_TEMPLATE` – monitor path pattern (default: `{DATA_DIR}/monitors/{id}.json`)
+- `DASHBOARDS_PATH_TEMPLATE` – dashboard path pattern (default: `$DATA_DIR/dashboards/{id}.json`)
+- `MONITORS_PATH_TEMPLATE` – monitor path pattern (default: `$DATA_DIR/monitors/{id}.json`)
 - `HTTP_TIMEOUT` – HTTP client timeout in seconds (default: `60`)
 
 `.env` example:
@@ -70,8 +70,8 @@ DD_API_KEY=your_api_key
 DD_APP_KEY=your_app_key
 # DD_SITE=datadoghq.eu # or us3.datadoghq.com, etc. 
 # DATA_DIR=/my/datadog/account/data/is/here
-# DASHBOARDS_PATH_TEMPLATE={DATA_DIR}/dashboards/{team}/{title}-{id}.json
-# MONITORS_PATH_TEMPLATE={DATA_DIR}/monitors/{team}/{name}-{id}.json
+# DASHBOARDS_PATH_TEMPLATE=data/dashboards/{team}/{title}-{id}.json
+# MONITORS_PATH_TEMPLATE=data/monitors/{team}/{name}-{id}.json
 # HTTP_TIMEOUT=60
 ```
 
@@ -93,7 +93,7 @@ Or set environment variables: `DATA_DIR`, `DASHBOARDS_PATH_TEMPLATE`, `MONITORS_
 
 Supported placeholders (rendered with Go templates):
 
-- `{DATA_DIR}`
+- `data`
 - `{id}`
 - `{title}` (dashboards)
 - `{name}` (monitors)
