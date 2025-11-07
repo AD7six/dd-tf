@@ -2,7 +2,6 @@ package monitors
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/AD7six/dd-tf/internal/datadog/monitors"

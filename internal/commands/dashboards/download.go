@@ -2,7 +2,6 @@ package dashboards
 
 import (
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/AD7six/dd-tf/internal/datadog/dashboards"

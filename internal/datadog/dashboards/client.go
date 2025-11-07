@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 
@@ -359,7 +358,7 @@ func ComputeDashboardPath(settings *config.Settings, dashboard map[string]any, o
 	// Extract title - use placeholder if missing
 	title, ok := dashboard["title"].(string)
 	if !ok || title == "" {
-		fmt.Fprintf(os.Stderr, "Warning: dashboard %s missing valid 'title' field, using placeholder\n", id)
+		logging.Logger.Warn("dashboard missing title; using placeholder", "id", id)
 		title = "untitled"
 	}
 
