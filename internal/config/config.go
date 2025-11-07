@@ -32,8 +32,7 @@ type Settings struct {
 // Required environment variables: DD_API_KEY, DD_APP_KEY.
 // Optional variables: DD_SITE, DATA_DIR, DASHBOARDS_PATH_TEMPLATE, MONITORS_PATH_TEMPLATE, HTTP_TIMEOUT, HTTP_MAX_BODY_SIZE, PAGE_SIZE.
 func LoadSettings() (*Settings, error) {
-	// Load embedded defaults first
-	envMap, err := godotenv.Unmarshal(embeddedDefaults)
+	envMap, err := GetDefaultEnv()
 	if err != nil {
 		return nil, fmt.Errorf("error parsing embedded defaults: %w", err)
 	}
@@ -86,6 +85,10 @@ func LoadSettings() (*Settings, error) {
 		HTTPMaxBodySize:        HTTPMaxBodySize,
 		PageSize:               pageSize,
 	}, nil
+}
+
+func GetDefaultEnv() (map[string]string, error) {
+	return godotenv.Unmarshal(embeddedDefaults)
 }
 
 // get the env variable or raise an error
