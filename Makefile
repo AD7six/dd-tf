@@ -78,11 +78,11 @@ release: ## Interactive release tagging (creates semver git tag)
 ###
 .PHONY: tf-fmt
 tf-fmt: # Terraform only format files
-	@terraform fmt -recursive .
+	terraform fmt -recursive .
 
 .PHONY: go-fmt
 go-fmt: # Go only, format files
-	@go fmt ./...
+	go fmt ./...
 
 .PHONY: go-lint
 go-lint: dev-tools # Run vet and golangci-lint
