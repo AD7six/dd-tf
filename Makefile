@@ -14,6 +14,12 @@ lint: go-lint ## Lint code (vet + golangci-lint)
 test: ## Runs go tests
 	@go test ./...	
 
+.PHONY: dev-tools
+dev-tools: ## Install dev tools
+	@bin_dir=$${GOBIN:-$$(go env GOPATH)/bin}; \
+	case ":$$PATH:" in *":$$bin_dir:"*) ;; * ) echo "[warn] $$bin_dir not in PATH; add 'export PATH=\"$$bin_dir:$$PATH\"' to your shell rc" ;; esac; \
+	command -v golangci-lint >/dev/null 2>&1 || { echo "Installing golangci-lint"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.0; } ;
+
 .PHONY: build
 build: ## Builds the go binary
 	@go build \
@@ -78,15 +84,9 @@ tf-fmt: # Terraform only format files
 go-fmt: # Go only, format files
 	@go fmt ./...
 
-
-# Install golangci-lint if not present (helper target)
-.PHONY: tools
-tools: # Install developer tools (golangci-lint)
-	@command -v golangci-lint >/dev/null 2>&1 || { echo "Installing golangci-lint"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.0; }
-
 .PHONY: go-lint
-go-lint: tools # Run vet and golangci-lint
-	@echo "Running go vet" && go vet ./...
-	@echo "Running golangci-lint (govet only)" && golangci-lint run --disable-all -E govet ./...
+go-lint: dev-tools # Run vet and golangci-lint
+	go vet ./...
+	golangci-lint run --disable-all -E govet ./...
 
 
