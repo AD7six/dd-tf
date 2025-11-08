@@ -8,11 +8,17 @@ help: ## Lists help commands
 fmt: go-fmt tf-fmt ## Format code
 
 .PHONY: lint 
-lint: go-lint ## Lint code
+lint: go-lint ## Lint code (vet + golangci-lint)
 
 .PHONY: test
 test: ## Runs go tests
 	@go test ./...	
+
+.PHONY: dev-tools
+dev-tools: ## Install dev tools
+	@bin_dir=$${GOBIN:-$$(go env GOPATH)/bin}; \
+	case ":$$PATH:" in *":$$bin_dir:"*) ;; * ) echo "[warn] $$bin_dir not in PATH; add 'export PATH=\"$$bin_dir:$$PATH\"' to your shell rc" ;; esac; \
+	command -v golangci-lint >/dev/null 2>&1 || { echo "Installing golangci-lint"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.0; } ;
 
 .PHONY: build
 build: ## Builds the go binary
@@ -72,14 +78,15 @@ release: ## Interactive release tagging (creates semver git tag)
 ###
 .PHONY: tf-fmt
 tf-fmt: # Terraform only format files
-	@terraform fmt -recursive .
+	terraform fmt -recursive .
 
 .PHONY: go-fmt
 go-fmt: # Go only, format files
-	@go fmt ./...
+	go fmt ./...
 
 .PHONY: go-lint
-go-lint: # Go only, lint files
-	@go vet ./...
+go-lint: dev-tools # Run vet and golangci-lint
+	go vet ./...
+	golangci-lint run --disable-all -E govet ./...
 
 

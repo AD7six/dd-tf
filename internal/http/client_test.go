@@ -43,14 +43,6 @@ func (f *fakeSleeper) getSleepCount() int {
 	return int(atomic.LoadInt32(&f.sleepCount))
 }
 
-func (f *fakeSleeper) getSleeps() []time.Duration {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	result := make([]time.Duration, len(f.sleeps))
-	copy(result, f.sleeps)
-	return result
-}
-
 func TestNewClient(t *testing.T) {
 	t.Run("creates client with default values", func(t *testing.T) {
 		client := newClient("test-key", "test-app", 0, 0, 0)
@@ -130,7 +122,10 @@ func TestDatadogHTTPClient_Get_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok"}`))
+		_, err := w.Write([]byte(`{"status": "ok"}`))
+		if err != nil {
+			t.Errorf("error writing response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -161,11 +156,17 @@ func TestDatadogHTTPClient_Get_Retries429(t *testing.T) {
 			// First two attempts return 429
 			w.Header().Set("Retry-After", "1")
 			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte(`{"error": "rate limited"}`))
+			_, err := w.Write([]byte(`{"error": "rate limited"}`))
+			if err != nil {
+				t.Errorf("error writing response: %v", err)
+			}
 		} else {
 			// Third attempt succeeds
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status": "ok"}`))
+			_, err := w.Write([]byte(`{"status": "ok"}`))
+			if err != nil {
+				t.Errorf("error writing response: %v", err)
+			}
 		}
 	}))
 	defer server.Close()
@@ -210,11 +211,17 @@ func TestDatadogHTTPClient_Get_Retries5xx(t *testing.T) {
 		if count <= 1 {
 			// First attempt returns 500
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(`{"error": "server error"}`))
+			_, err := w.Write([]byte(`{"error": "server error"}`))
+			if err != nil {
+				t.Errorf("error writing response: %v", err)
+			}
 		} else {
 			// Second attempt succeeds
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status": "ok"}`))
+			_, err := w.Write([]byte(`{"status": "ok"}`))
+			if err != nil {
+				t.Errorf("error writing response: %v", err)
+			}
 		}
 	}))
 	defer server.Close()
@@ -250,7 +257,10 @@ func TestDatadogHTTPClient_Get_DoesNotRetry4xx(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&attemptCount, 1)
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"error": "not found"}`))
+		_, err := w.Write([]byte(`{"error": "not found"}`))
+		if err != nil {
+			t.Errorf("error writing response: %v", err)
+		}
 	}))
 	defer server.Close()
 
