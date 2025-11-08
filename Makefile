@@ -82,7 +82,7 @@ go-fmt: # Go only, format files
 # Install golangci-lint if not present (helper target)
 .PHONY: tools
 tools: # Install developer tools (golangci-lint)
-	@command -v golangci-lint >/dev/null 2>&1 || { echo "Installing golangci-lint"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.1; }
+	@command -v golangci-lint >/dev/null 2>&1 || { echo "Installing golangci-lint"; go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.0; }
 
 .PHONY: go-lint
 go-lint: tools # Run vet and golangci-lint
