@@ -67,7 +67,7 @@ jobs:
                   sha256sum dd-tf-* > checksums.txt
                   cat checksums.txt
 
-            - name: Create GitHub Release (draft) and upload assets
+            - name: Create GitHub Release
               uses: softprops/action-gh-release@v1
               with:
                   files: |
@@ -78,25 +78,5 @@ jobs:
                       bin/dd-tf-windows-amd64.exe
                       bin/checksums.txt
                   generate_release_notes: true
-                  draft: true
+                  draft: false
                   prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
-
-            - name: Publish GitHub Release
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  TAG=${GITHUB_REF#refs/tags/}
-                  REPLY=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}")
-                  RELEASE_ID=$(python - <<'PY'
-                  import sys, json
-                  obj = json.load(sys.stdin)
-                  print(obj.get("id", ""))
-                  PY
-                  <<<"$REPLY")
-                  if [ -z "$RELEASE_ID" ]; then
-                    echo "Release for tag ${TAG} not found; aborting publish."
-                    echo "$REPLY" | sed -n '1,200p'
-                    exit 1
-                  fi
-                  echo "Publishing release id: $RELEASE_ID"
-                  curl -s -X PATCH -H "Authorization: token ${GITHUB_TOKEN}" -H "Content-Type: application/json" -d '{"draft":false}' "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" | sed -n '1,200p'
